@@ -15,5 +15,5 @@
 
 (deftest test-roundtrips
   (doseq [dst (possible-conversions text)]
-    (is (= text (-> text (convert dst) (convert String))))))
+    (is (= text (-> text (convert dst {:chunk-size 128}) (convert String))))))
 
