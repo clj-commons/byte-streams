@@ -1,4 +1,4 @@
-Java has a lot of different ways to represent a stream of bytes.  Depending on the author and age of a library, it might use byte-arrays, `InputStream`, `ByteBuffer`, or `Channel`.  If the bytes represent strings, there's also `String`, `Reader`, and `CharSequence` to worry about.  While converting between any two of these isn't too difficult, the sheer number of permutations guarantees you won't be able to memorize the incantation or wrapper class for all of them.  And even if you could, why would you want to?
+Java has a lot of different ways to represent a stream of bytes.  Depending on the author and age of a library, it might use byte-arrays, `InputStream`, `ByteBuffer`, or `Channel`.  If the bytes represent strings, there's also `String`, `Reader`, and `CharSequence` to worry about.  Remembering how to convert between all of them is a thankless task, made that much worse by libraries which define their own custom representations, or composing them with Clojure's lazy sequences.
 
 This library is a Rosetta stone for all the byte representations Java has to offer, and gives you the freedom to forget all the APIs you never wanted to know in the first place.
 
@@ -10,7 +10,7 @@ This library is a Rosetta stone for all the byte representations Java has to off
 
 ### converting types
 
-The conversion functionality is exposed by `byte-streams/convert`:
+To convert one byte representation to another, use `byte-streams/convert`:
 
 ```clj
 byte-streams> (convert "abcd" java.nio.ByteBuffer)
