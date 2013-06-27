@@ -10,7 +10,7 @@ This library is a Rosetta stone for all the byte representations Java has to off
 
 ### converting types
 
-The conversion functionality is exposed by `byte-streams/convert':
+The conversion functionality is exposed by `byte-streams/convert`:
 
 ```clj
 byte-streams> (convert "abcd" java.nio.ByteBuffer)
