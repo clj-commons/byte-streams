@@ -10,7 +10,7 @@ This library is a Rosetta stone for all the byte representations Java has to off
 
 ### converting types
 
-The conversion functionality is exposed by `(byte-streams/convert data to-type options?)`:
+The conversion functionality is exposed by `byte-streams/convert':
 
 ```clj
 byte-streams> (convert "abcd" java.nio.ByteBuffer)
@@ -19,7 +19,7 @@ byte-streams> (convert *1 String)
 "abcd"
 ```
 
-This converts, if possible, the data from its current type to the destination type.  This destination type can either be a Java class, or a Clojure protocol.  However, since there's no direct route from a string to a byte-buffer, under the covers `convert` is doing whatever it takes to get the desired type:
+`(convert data to-type options?)` converts, if possible, the data from its current type to the destination type.  This destination type can either be a Java class, or a Clojure protocol.  However, since there's no direct route from a string to a byte-buffer, under the covers `convert` is doing whatever it takes to get the desired type:
 
 ```clj
 byte-streams> (conversion-path String java.nio.ByteBuffer)
