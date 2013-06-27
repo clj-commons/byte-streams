@@ -86,185 +86,167 @@
 (defn- searched? [k dst]
   (*searched* [k dst]))
 
-(let [shortest #(->> % (sort-by count) first)
-      
-      ;; exhaustively find the shorted path between two points
-      search-fn
-      (fn search-fn [m-ref]
-        (let [f' (promise)]
-          (deliver f'
-            (fn [k dst]
-              (if (= k dst)
-                [k]
-                (->> (concat
-                       (->> (@m-ref k) keys (map #(list % dst)))
-                       (when (many? k)
-                         (concat
-                           (->> (@m-ref (second k)) keys (map #(list (many %) dst)))
-                           (when (many? dst)
-                             [[(second k) (second dst)]]))))
-                  (remove #(apply searched? %))
-                  (map (fn [[next-k next-dst]]
-                         (when-let [path (binding [*searched* (conj *searched* [k dst])]
-                                           (@f' next-k next-dst))]
-                           (if (= dst next-dst)
-                             (cons k path)
-                             (map many path)))))
-                  (remove nil?)
-                  doall
-                  shortest))))
-          @f'))
+(defn- shortest [s]
+  (->> s (sort-by count) first))
 
-      ;; shortest path, given many starting places and many destinations
-      multi-search-fn
-      (fn multi-search-fn [src-fn dst-fn search-fn]
-        (memoize
-          (fn [a b]
-            (->> (for [src (src-fn a) dst (dst-fn b)] [src dst])
-              (map #(apply search-fn %))
-              (remove nil?)
-              shortest))))
+(defn- shortest-conversion-path
+  [curr dst]
+  (if (= curr dst)
+    [curr]
+    (let [m @src->dst->conversion
+          next (concat
+                 ;; normal a -> b
+                 (->> (m curr) keys)
 
-      ;; matching starting places
-      src-fn
-      (fn src-fn [m-ref]
-        (fn [x]
-          (let [x (if (var? x) @x x)]
-            (->> @m-ref
-              keys
-              (filter #(cond
-                         (and (class? x) (class? %))
-                         (.isAssignableFrom ^Class % x)
+                 ;; when exists (a -> b), (many a) can be implicitly converted to (many b)
+                 (when (many? curr)
+                   (->> (m (second curr)) keys (map many))))]
+      (->> next
+        (remove #(searched? % dst))
+        (map (fn [n]
+               (when-let [path (binding [*searched* (conj *searched* [curr dst])]
+                                 (shortest-conversion-path n dst))]
+                 (cons curr path))))
+        (remove nil?)
+        shortest))))
 
-                         (and (many? x) (many? %))
-                         (.isAssignableFrom ^Class (second %) (second x))
+(defn- valid-sources [x]
+  (let [x (if (var? x) @x x)]
+    (->> @src->dst->conversion
+      keys
+      (filter #(cond
+                 (and (class? x) (class? %))
+                 (.isAssignableFrom ^Class % x)
+                 
+                 (and (many? x) (many? %))
+                 (.isAssignableFrom ^Class (second %) (second x))
+                 
+                 :else
+                 (= x %))))))
 
-                         :else
-                         (= x %)))))))
+(defn- valid-destinations [x]
+  (let [x (if (var? x) @x x)]
+    (cond
+      (many? x)      (->> x second valid-destinations (map many))
+      (class? x)     [x]
+      (protocol? x)  (keys (get x :impls))
+      :else          [x])))
 
-      ;; matching destinations (multiple if the destination is a protocol)
-      dst-fn
-      (fn dst-fn [x]
-        (let [x (if (var? x) @x x)]
-          (cond
-            (many? x)      (->> x second dst-fn (map many))
-            (class? x)     [x]
-            (protocol? x)  (keys (get x :impls))
-            :else          [x])))
-      
-      shortest-path-fn
-      (fn [m-ref]
-        (multi-search-fn (src-fn m-ref) dst-fn (search-fn m-ref)))
+(def ^:private converter
+  (memoize
+    (fn [src dst]
+      ;; expand out the cartesian product of all possible starting and ending positions,
+      ;; and choose the shortest
+      (let [path (->> (for [src (valid-sources src), dst (valid-destinations dst)]
+                        [src dst])
+                   (map #(apply shortest-conversion-path %))
+                   (remove nil?)
+                   shortest)
+            fns  (->> path
+                   (partition 2 1)
+                   (map (fn [[a b :as a+b]]
+                          (if-let [f (get-in @src->dst->conversion a+b)]
+                            f
+                            
+                            ;; implicit (many a) -> (many b) conversion
+                            (if-let [f (when (every? many? a+b)
+                                         (get-in @src->dst->conversion (map second a+b)))]
+                              (fn [x options]
+                                (map #(f % options) x))
+                              
+                              ;; this shouldn't ever happen, but let's have a decent error message all the same
+                              (throw (IllegalStateException. (str "We thought we could convert between " a " and " b ", but we can't."))))))))]
+        (fn [x options]
+          (reduce #(%2 %1 options) x fns))))))
 
-      shortest-conversion-path (shortest-path-fn src->dst->conversion)
+(defn- source-type
+  [x]
+  (if (or (sequential? x) (= objects (class x)))
+    (many (source-type (first x)))
+    (class x)))
 
-      converter-fn
-      (fn [m-ref]
-        (let [f (shortest-path-fn m-ref)]
-          (memoize
-            (fn [a b]
-              (when-let [path (f a b)]
-                (let [fns (->> path
-                            (partition 2 1)
-                            (map (fn [[a b]]
-                                   (get-in @m-ref [a b]
-                                     (let [f (when (and (many? a) (many? b))
-                                               (get-in @m-ref [(second a) (second b)]))]
-                                       (fn [x options]
-                                         (map #(f % options) x)))))))]
-                  (fn [x options]
-                    (reduce #(%2 %1 options) x fns))))))))
+(defn convert
+  "Converts `x`, if possible, into type `dst`, which can be either a class or protocol.  If no such conversion
+   is possible, an IllegalArgumentException is thrown."
+  ([x dst]
+     (convert x dst nil))
+  ([x dst options]
+     (let [src (source-type x)]
+       (if (or
+             (= src dst)
+             (and (class? src) (class? dst) (.isAssignableFrom ^Class dst src)))
+         x
+         (if-let [f (converter src dst)]
+           (f x options)
+           (throw (IllegalArgumentException.
+                    (if (many? src)
+                      (str "Don't know how to convert a sequence of " (second src) " into " dst)
+                      (str "Don't know how to convert " src " into " dst)))))))))
 
-      converter (converter-fn src->dst->conversion)]
+(defn conversion-path
+  "Returns the path, if any, of type conversion that will transform type `src`, which must be a class or (many class)
+   into type `dst`, which can be either a class, a protocol, or (many class-or-protocol)."
+  [src dst]
+  (shortest-conversion-path src dst))
 
-  (defn source-type
-    [x]
-    (if (or (sequential? x) (= objects (class x)))
-      (many (source-type (first x)))
-      (class x)))
-  
-  (defn convert
-    "Converts `x`, if possible, into type `dst`, which can be either a class or protocol.  If no such conversion
-     is possible, an IllegalArgumentException is thrown."
-    ([x dst]
-       (convert x dst nil))
-    ([x dst options]
-       (let [src (source-type x)]
-         (if (or
-               (= src dst)
-               (and (class? src) (class? dst) (.isAssignableFrom dst src)))
-           x
-           (if-let [f (converter src dst)]
-             (f x options)
-             (throw (IllegalArgumentException.
-                      (if (many? src)
-                        (str "Don't know how to convert a sequence of " (second src) " into " dst)
-                        (str "Don't know how to convert " src " into " dst)))))))))
+(defn possible-conversions
+  [x]
+  (let [src (if (class? x)
+              x
+              (source-type x))]
+    (->> @src->dst->conversion
+      vals
+      (mapcat keys)
+      distinct
+      (filter #(conversion-path src %)))))
 
-  (defn conversion-path
-    "Returns the path, if any, of type conversion that will transform type `src`, which must be a class or (many class)
-     into type `dst`, which can be either a class, a protocol, or (many class-or-protocol)."
-    [src dst]
-    (shortest-conversion-path src dst))
+;; for byte transfers
+(let [default-transfer (fn [source sink & {:keys [chunk-size] :or {chunk-size 1024} :as options}]
+                         (loop []
+                           (when-let [b (take-bytes! source chunk-size options)]
+                             (send-bytes! sink b options)
+                             (recur)))
+                         (when (satisfies? Closeable source)
+                           (close source))
+                         (when (satisfies? Closeable sink)
+                           (close sink)))
 
-  (defn possible-conversions
-    [x]
-    (let [src (if (class? x)
-                x
-                (source-type x))]
-      (->> @src->dst->conversion
-        vals
-        (mapcat keys)
-        distinct
-        (filter #(conversion-path src %)))))
+      transfer-fn (memoize
+                    (fn [src dst]
+                      (let [src' (->> @src->dst->transfer
+                                   keys
+                                   (map (partial conversion-path src))
+                                   (remove nil?)
+                                   shortest)
+                            dst' (->> @src->dst->transfer
+                                   vals
+                                   (map (partial conversion-path dst))
+                                   (remove nil?)
+                                   shortest)]
+                        (cond
 
-  ;; for byte transfers
-  (let [default-transfer (fn [source sink & {:keys [chunk-size] :or {chunk-size 1024} :as options}]
-                           (loop []
-                             (when-let [b (take-bytes! source chunk-size options)]
-                               (send-bytes! sink b options)
-                               (recur)))
-                           (when (satisfies? Closeable source)
-                             (close source))
-                           (when (satisfies? Closeable sink)
-                             (close sink)))
+                          (and src' dst')
+                          (let [f (get-in @src->dst->transfer [src' dst'])]
+                            (fn [source sink & options]
+                              (apply f (convert source src') (convert sink dst') options)))
 
-        transfer-fn (memoize
-                      (fn [src dst]
-                        (let [src' (->> @src->dst->transfer
-                                     keys
-                                     (map (partial conversion-path src))
-                                     (remove nil?)
-                                     shortest)
-                              dst' (->> @src->dst->transfer
-                                     vals
-                                     (map (partial conversion-path dst))
-                                     (remove nil?)
-                                     shortest)]
-                          (cond
+                          (and
+                            (conversion-path src ByteSource)
+                            (conversion-path dst ByteSink))
+                          default-transfer
 
-                            (and src' dst')
-                            (let [f (get-in @src->dst->transfer [src' dst'])]
-                              (fn [source sink & options]
-                                (apply f (convert source src') (convert sink dst') options)))
+                          :else
+                          nil))))]
 
-                            (and
-                              (conversion-path src ByteSource)
-                              (conversion-path dst ByteSink))
-                            default-transfer
-
-                            :else
-                            nil))))]
-
-    (defn transfer
-      [source sink & options]
-      (let [src (source-type source)
-            dst (source-type sink)]
-        (if-let [f (transfer-fn src dst)]
-          (apply f source sink options)
-          (if (many? src)
-            (throw (IllegalArgumentException. (str "Don't know how to transfer between a sequence of " (second src) " to " dst)))
-            (throw (IllegalArgumentException. (str "Don't know how to transfer between " src " to " dst)))))))))
+  (defn transfer
+    [source sink & options]
+    (let [src (source-type source)
+          dst (source-type sink)]
+      (if-let [f (transfer-fn src dst)]
+        (apply f source sink options)
+        (if (many? src)
+          (throw (IllegalArgumentException. (str "Don't know how to transfer between a sequence of " (second src) " to " dst)))
+          (throw (IllegalArgumentException. (str "Don't know how to transfer between " src " to " dst))))))))
 
 ;;; conversion definitions
 
@@ -301,14 +283,14 @@
       ary)))
 
 ;; sequence of byte-arrays => byte-buffer
-(def-conversion [(many bytes) ByteBuffer]
-  [arrays {:keys [direct?] :or {direct? false}}]
-  (let [len (reduce + (map #(Array/getLength %) arrays))
+(def-conversion [(many ByteBuffer) ByteBuffer]
+  [bufs {:keys [direct?] :or {direct? false}}]
+  (let [len (reduce + (map #(.remaining ^ByteBuffer %) bufs))
         buf (if direct?
               (ByteBuffer/allocateDirect len)
               (ByteBuffer/allocate len))]
-    (doseq [ary arrays]
-      (.put buf ^bytes ary))
+    (doseq [^ByteBuffer b bufs]
+      (.put buf b))
     (.flip buf)))
 
 ;; channel => input-stream
@@ -379,7 +361,7 @@
 
 (def-conversion [File WritableByteChannel]
   [file {:keys [append?] :or {append? true}}]
-  (.getChannel (FileOutputStream. file append?)))
+  (.getChannel (FileOutputStream. file (boolean append?))))
 
 ;;;
 
@@ -387,22 +369,22 @@
 
   OutputStream
   (send-bytes! [this b]
-    (.write this (convert b bytes)))
+    (.write ^OutputStream this ^bytes (convert b bytes)))
 
   WritableByteChannel
   (send-bytes! [this b]
-    (.write this (convert b ByteBuffer))))
+    (.write this ^ByteBuffer (convert b ByteBuffer))))
 
 (extend-protocol ByteSource
 
-  OutputStream
+  InputStream
   (take-bytes! [this n _]
     (let [ary (byte-array n)
           n (long n)]
       (loop [idx 0]
         (if (== idx n)
           ary
-          (let [read (.read this ary idx (- n idx))]
+          (let [read (.read this ary idx (long (- n idx)))]
             (if (== -1 read)
               (when (pos? idx)
                 (let [ary' (byte-array idx)]
