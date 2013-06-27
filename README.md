@@ -1,4 +1,6 @@
-Java has a lot of different ways to represent a stream of bytes.  Depending on the author and age of a library, it might use byte-arrays, `InputStream`, `ByteBuffer`, or `Channel`.  If the bytes represent strings, there's also `String`, `Reader`, and `CharSequence` to worry about.  Remembering how to convert between all of them is a thankless task, made that much worse by libraries which define their own custom representations, or composing them with Clojure's lazy sequences.
+*This is alpha-quality software, and subject to bugs and changes*
+
+Java has a lot of different ways to represent a stream of bytes.  Depending on the author and age of a library, it might use `byte[]`, `InputStream`, `ByteBuffer`, or `Channel`.  If the bytes represent strings, there's also `String`, `Reader`, and `CharSequence` to worry about.  Remembering how to convert between all of them is a thankless task, made that much worse by libraries which define their own custom representations, or composing them with Clojure's lazy sequences.
 
 This library is a Rosetta stone for all the byte representations Java has to offer, and gives you the freedom to forget all the APIs you never wanted to know in the first place.
 
@@ -19,16 +21,16 @@ byte-streams> (convert *1 String)
 "abcd"
 ```
 
-`(convert data to-type options?)` converts, if possible, the data from its current type to the destination type.  This destination type can either be a Java class, or a Clojure protocol.  However, since there's no direct route from a string to a byte-buffer, under the covers `convert` is doing whatever it takes to get the desired type:
+`(convert data to-type options?)` converts, if possible, the data from its current type to the destination type.  This destination type can either be a Java class or a Clojure protocol.  However, since there's no direct route from a string to a byte-buffer, under the covers `convert` is doing whatever it takes to get the desired type:
 
 ```clj
 byte-streams> (conversion-path String java.nio.ByteBuffer)
 (java.lang.String [B java.nio.ByteBuffer)
 ```
 
-While we can't turn a string into a `ByteBuffer`, we can turn a string into a byte-array, and a byte-array into a `ByteBuffer`.  When invoked, `convert` will choose the minimal path along the graph of available conversions.  Common conversions are exposed via `to-byte-buffer`, `to-byte-array`, `to-input-stream`, `to-readable-channel`, and `to-line-seq`.  
+While we can't turn a string into a `ByteBuffer`, we can turn a string into a `byte[]`, and `byte[]` into a `ByteBuffer`.  When invoked, `convert` will choose the minimal path along the graph of available conversions.  Common conversions are exposed via `to-byte-buffer`, `to-byte-array`, `to-input-stream`, `to-readable-channel`, and `to-line-seq`.  
 
-Every type can exist either by itself, or as a sequence.  For instance, we can create an `InputStream` representing an infinite number of hellos:
+Every type can exist either by itself, or as a sequence.  For instance, we can create an `InputStream` representing an infinite number of repeated strings:
 
 ```clj
 byte-stream> (to-input-stream (repeat "hello"))
