@@ -22,6 +22,7 @@
     [java.nio.channels
      ReadableByteChannel
      WritableByteChannel
+     FileChannel
      Channels
      Pipe]
     [java.nio.channels.spi
@@ -29,8 +30,11 @@
 
 ;;; protocols
 
+(defprotocol Byteable
+  (to-byte [_] "Converts the object to a single byte."))
+
 (defprotocol Closeable
-  (close [_]))
+  (close [_] "A protocols that is a superset of java.io.Closeable."))
 
 (defprotocol ByteSource
   (take-bytes! [_ n options] "Takes `n` bytes from the byte source."))
@@ -38,7 +42,7 @@
 (defprotocol ByteSink
   (send-bytes! [_ bytes options] "Puts `bytes` in the byte sink."))
 
-;;; utility functions for conversion graph
+;;;
 
 (def ^:private src->dst->conversion (atom nil))
 (def ^:private src->dst->transfer (atom nil))
@@ -67,22 +71,23 @@
   [[src dst] params & body]
   (let [src' (eval src)
         dst' (eval dst)]
-    (swap! src->dst->conversion assoc-in [src' dst']
+    (swap! src->dst->transfer assoc-in [src' dst']
       (eval
         `(fn [~(with-meta (first params) {:tag src})
               ~(with-meta (second params) {:tag dst})
-              ~@(if-let [rst (seq (drop 2 params))] rst (list '& (gensym "rest")))]
+              ~(if-let [options (nth params 2)] options (gensym "options"))]
            ~@body)))))
 
-(defn many [x]
-  [:many x])
+(defn seq-of [x]
+  [:seq-of x])
 
-(defn many? [x]
-  (and (vector? x) (= :many (first x))))
+(defn seq-of? [x]
+  (and (vector? x) (= :seq-of (first x))))
 
 (defn protocol? [x]
   (and (map? x) (contains? x :impls)))
-;;;
+
+;;; convert
 
 (def ^:private ^:dynamic *searched* #{})
 
@@ -101,9 +106,9 @@
                  ;; normal a -> b
                  (->> (m curr) keys)
 
-                 ;; when exists (a -> b), (many a) can be implicitly converted to (many b)
-                 (when (many? curr)
-                   (->> (m (second curr)) keys (map many))))]
+                 ;; when there exists (a -> b), that implies (seq-of a) -> (seq-of b)
+                 (when (seq-of? curr)
+                   (->> (m (second curr)) keys (map seq-of))))]
       (->> next
         (remove #(searched? % dst))
         (map (fn [n]
@@ -119,34 +124,65 @@
                  (cond
                    (and (class? a) (class? b))
                    (.isAssignableFrom ^Class b a)
-                   
-                   (and (many? a) (many? b))
+
+                   (and (protocol? b) (class? a))
+                   (contains? (:impls b) a)
+
+                   (and (seq-of? a) (seq-of? b))
                    (valid? (second a) (second b))
                    
                    :else
                    (= a b)))]
     (->> @src->dst->conversion
       keys
-      (mapcat #(if (many? %) [%] [% (many %)]))
+      (mapcat #(if (seq-of? %) [%] [% (seq-of %)]))
       (filter (partial valid? x)))))
 
 (defn- valid-destinations [x]
   (let [x (if (var? x) @x x)]
     (cond
-      (many? x)      (->> x second valid-destinations (map many))
+      (seq-of? x)    (->> x second valid-destinations (map seq-of))
       (class? x)     [x]
       (protocol? x)  (keys (get x :impls))
       :else          [x])))
 
 (defn conversion-path
-  "Returns the path, if any, of type conversion that will transform type `src`, which must be a class or (many class)
-   into type `dst`, which can be either a class, a protocol, or (many class-or-protocol)."
+  "Returns the path, if any, of type conversion that will transform type `src`, which must be a class or (seq-of class)
+   into type `dst`, which can be either a class, a protocol, or (seq-of class-or-protocol)."
   [src dst]
   (->> (for [src (valid-sources src), dst (valid-destinations dst)]
          [src dst])
     (map #(apply shortest-conversion-path %))
     (remove nil?)
     shortest))
+
+(defn- exhaustible-seq [s close-fn]
+  (if (empty? s)
+    (do
+      (close-fn)
+      nil)
+    (reify
+
+      java.io.Closeable
+      (close [_]
+        (close-fn))
+      
+      clojure.lang.Sequential
+      clojure.lang.ISeq
+      clojure.lang.Seqable
+      (cons [_ a]
+        (exhaustible-seq (cons a s) close-fn))
+      (next [this]
+        (exhaustible-seq (next s) close-fn))
+      (more [this]
+        (let [rst (next this)]
+          (if (empty? rst)
+            '()
+            rst)))
+      (first [_]
+        (first s))
+      (seq [this]
+        this))))
 
 (def ^:private converter
   (memoize
@@ -159,8 +195,8 @@
                               (if-let [f (get-in @src->dst->conversion a+b)]
                                 f
                                 
-                                ;; implicit (many a) -> (many b) conversion
-                                (if-let [f (when (every? many? a+b)
+                                ;; implicit (seq-of a) -> (seq-of b) conversion
+                                (if-let [f (when (every? seq-of? a+b)
                                              (get-in @src->dst->conversion (map second a+b)))]
                                   (fn [x options]
                                     (map #(f % options) x))
@@ -171,31 +207,58 @@
                                       (str "We thought we could convert between " a " and " b ", but we can't.")))))))
                        seq)]
         (fn [x options]
-          (reduce #(%2 %1 options) x fns))))))
+          (let [close-fns (atom [])
+                result (reduce
+                         (fn [x f]
+
+                           ;; keep track of everything that needs to be closed once the bytes are exhausted
+                           (when (satisfies? Closeable x)
+                             (swap! close-fns conj #(close x)))
+                           (f x options))
+                         x
+                         fns)]
+            (if-let [close-fn (when-let [fns (seq @close-fns)]
+                                #(doseq [f fns] (f)))] 
+              (if (sequential? result)
+                (exhaustible-seq result close-fn)
+                (do
+                  (close-fn)
+                  result))
+              result)))))))
 
 (defn- source-type
   [x]
   (if (or (sequential? x) (= object-array (class x)))
-    (many (source-type (first x)))
+    (seq-of (source-type (first x)))
     (class x)))
 
 (defn convert
   "Converts `x`, if possible, into type `dst`, which can be either a class or protocol.  If no such conversion
-   is possible, an IllegalArgumentException is thrown."
+   is possible, an IllegalArgumentException is thrown.
+
+   `options` is a map, whose available settings depend on what sort of transform is being performed:
+
+   `chunk-size` - if a stream is being transformed into a sequence of discrete chunks, `:chunk-size` describes the
+                  size of the chunks, which default to 4096 bytes.
+   `encoding`   - if a string is being encoded or decoded, `:encoding` describes the charset that is used, which
+                  defaults to 'utf-8'
+   `direct?`    - if a byte-buffer is being allocated, `:direct?` describes whether it should be a direct buffer,
+                  defaulting to false"
   ([x dst]
      (convert x dst nil))
   ([x dst options]
-     (let [src (source-type x)]
-       (if (or
-             (= src dst)
-             (and (class? src) (class? dst) (.isAssignableFrom ^Class dst src)))
-         x
-         (if-let [f (converter src dst)]
-           (f x options)
-           (throw (IllegalArgumentException.
-                    (if (many? src)
-                      (str "Don't know how to convert a sequence of " (second src) " into " dst)
-                      (str "Don't know how to convert " src " into " dst)))))))))
+     (when-not (and (sequential? x) (empty? x))
+       (let [src (source-type x)]
+         (if (or
+               (= src dst)
+               (and (class? src) (class? dst) (.isAssignableFrom ^Class dst src)))
+           x
+           (if-let [f (converter src dst)]
+             (f x options)
+             (throw (IllegalArgumentException.
+                      (if (seq-of? src)
+                        (str "Don't know how to convert a sequence of " (second src) " into " dst)
+                        (str "Don't know how to convert " src " into " dst))))))))))
 
 (defn possible-conversions
   "Returns a list of all possible conversion targets from the initial value or class."
@@ -209,60 +272,92 @@
       distinct
       (filter #(conversion-path src %)))))
 
-;;;
+;;; transfer
 
 (defn- default-transfer [source sink {:keys [chunk-size] :or {chunk-size 1024} :as options}]
   (loop []
     (when-let [b (take-bytes! source chunk-size options)]
       (send-bytes! sink b options)
-      (recur)))
-  (when (satisfies? Closeable source)
-    (close source))
-  (when (satisfies? Closeable sink)
-    (close sink)))
+      (recur))))
 
 (def ^:private transfer-fn
   (memoize
-    (fn [src dst]
-      (let [src' (->> @src->dst->transfer
-                   keys
-                   (map (partial conversion-path src))
-                   (remove nil?)
-                   shortest)
-            dst' (->> @src->dst->transfer
-                   vals
-                   (map (partial conversion-path dst))
-                   (remove nil?)
-                   shortest)]
+    (fn this [src dst]
+      (let [[src' dst'] (->> @src->dst->transfer
+                          keys
+                          (map (fn [src']
+                                 (and
+                                   (conversion-path src src')
+                                   (when-let [dst' (some
+                                                     #(and (conversion-path dst %) %)
+                                                     (keys (@src->dst->transfer src')))]
+                                     [src' dst']))))
+                          first)]
         (cond
           
           (and src' dst')
           (let [f (get-in @src->dst->transfer [src' dst'])]
-            (fn [source sink & options]
-              (apply f (convert source src') (convert sink dst') options)))
+            (fn [source sink options]
+              (let [source' (convert source src')
+                    sink' (convert sink dst')]
+                (f source' sink' options)
+                (doseq [x [source sink source' sink']]
+                  (when (satisfies? Closeable x)
+                    (close x))))))
           
           (and
             (conversion-path src ByteSource)
             (conversion-path dst ByteSink))
-          default-transfer
+          (fn [source sink options]
+            (let [source' (convert source ByteSource)
+                  sink' (convert sink ByteSink)]
+              (default-transfer source' sink' options)
+              (doseq [x [source sink source' sink']]
+                (when (satisfies? Closeable x)
+                  (close x)))))
           
           :else
           nil)))))
 
 ;; for byte transfers
 (defn transfer
+  "Transfers, if possible, all bytes from `source` into `sink`.  If this cannot be accomplished, an IllegalArgumentException is
+   thrown.
+
+   `options` is a map whose available settings depends on the source and sink types:
+
+   `chunk-size` - if a stream is being transformed into a sequence of discrete chunks, `:chunk-size` describes the
+                  size of the chunks, which default to 4096 bytes.
+   `encoding`   - if a string is being encoded or decoded, `:encoding` describes the charset that is used, which
+                  defaults to 'utf-8'
+   `append?`    - if a file is being written to, `:append?` determines whether the bytes will overwrite the existing content
+                  or be appended to the end of the file.  This defaults to true."
   ([source sink]
      (transfer source sink nil))
   ([source sink options]
      (let [src (source-type source)
            dst (source-type sink)]
        (if-let [f (transfer-fn src dst)]
-         (apply f source sink options)
-         (if (many? src)
+         (f source sink options)
+         (if (seq-of? src)
            (throw (IllegalArgumentException. (str "Don't know how to transfer between a sequence of " (second src) " to " dst)))
            (throw (IllegalArgumentException. (str "Don't know how to transfer between " src " to " dst))))))))
 
 ;;; conversion definitions
+
+(def-conversion [(seq-of Byteable) (seq-of ByteBuffer)]
+  [s {:keys [chunk-size direct?] :or {chunk-size 4096, direct? false} :as options}]
+  (when-not (empty? s)
+    (let [s' (take chunk-size s)
+          cnt (count s')
+          buf (if direct?
+                (ByteBuffer/allocateDirect cnt)
+                (ByteBuffer/allocate cnt))]
+      (doseq [[i x] (map list (range) s')]
+        (.put buf i (to-byte x)))
+      (cons
+        buf
+        (convert (drop cnt s) (seq-of ByteBuffer) options)))))
 
 ;; byte-array => byte-buffer
 (def-conversion [byte-array ByteBuffer]
@@ -290,14 +385,17 @@
     (if (= (.capacity buf) (.remaining buf))
       (.array buf)
       (let [ary (clojure.core/byte-array (.remaining buf))]
-        (.get buf ary 0 (.remaining buf))
+        (doto buf
+          .mark
+          (.get ary 0 (.remaining buf))
+          .rewind)
         ary))
     (let [^bytes ary (Array/newInstance Byte/TYPE (.remaining buf))]
       (doto buf .mark (.get ary) .reset)
       ary)))
 
 ;; sequence of byte-arrays => byte-buffer
-(def-conversion [(many ByteBuffer) ByteBuffer]
+(def-conversion [(seq-of ByteBuffer) ByteBuffer]
   [bufs {:keys [direct?] :or {direct? false}}]
   (let [len (reduce + (map #(.remaining ^ByteBuffer %) bufs))
         buf (if direct?
@@ -313,12 +411,12 @@
   (Channels/newInputStream channel))
 
 ;; channel => lazy-seq of byte-buffers
-(def-conversion [ReadableByteChannel (many ByteBuffer)]
+(def-conversion [ReadableByteChannel (seq-of ByteBuffer)]
   [channel {:keys [chunk-size direct?] :or {chunk-size 4096, direct? false} :as options}]
   (when (.isOpen channel)
     (lazy-seq
       (when-let [b (take-bytes! channel chunk-size options)]
-        (cons b (convert channel (many ByteBuffer) options))))))
+        (cons b (convert channel (seq-of ByteBuffer) options))))))
 
 ;; input-stream => channel
 (def-conversion [InputStream ReadableByteChannel]
@@ -336,7 +434,7 @@
   (String. ^bytes ary (name encoding)))
 
 ;; lazy-seq of byte-buffers => channel
-(def-conversion [(many ByteBuffer) ReadableByteChannel]
+(def-conversion [(seq-of ByteBuffer) ReadableByteChannel]
   [bufs]
   (let [pipe (Pipe/open)
         ^WritableByteChannel sink (.sink pipe)
@@ -355,12 +453,13 @@
   [input-stream {:keys [encoding] :or {encoding "utf-8"}}]
   (BufferedReader. (InputStreamReader. input-stream ^String encoding)))
 
+;; reader => char-sequence
 (def-conversion [Reader CharSequence]
-  [reader]
-  (let [ary (char-array 1024)
+  [reader {:keys [chunk-size] :or {chunk-size 2048}}]
+  (let [ary (char-array chunk-size)
         sb (StringBuilder.)]
     (loop []
-      (let [n (.read reader ary 0 1024)]
+      (let [n (.read reader ary 0 chunk-size)]
         (if (pos? n)
           (do
             (.append sb ary 0 n)
@@ -382,23 +481,62 @@
   [file {:keys [append?] :or {append? true}}]
   (.getChannel (FileOutputStream. file (boolean append?))))
 
-;;;
+;;; def-transfers
+
+(def-transfer [ReadableByteChannel File]
+  [channel file {:keys [chunk-size] :or {chunk-size (int 1e7)} :as options}]
+  (let [^FileChannel fc (convert file WritableByteChannel options)]
+    (try
+      (loop [idx 0]
+        (let [n (.transferFrom fc channel idx chunk-size)]
+          (when (pos? n)
+            (recur (+ idx n)))))
+      (finally
+        (.close fc)))))
+
+(def-transfer [File WritableByteChannel]
+  [file channel {:keys [chunk-size] :or {chunk-size (int 1e7)} :as options}]
+  (let [^FileChannel fc (convert file ReadableByteChannel options)]
+    (try
+      (loop [idx 0]
+        (let [n (.transferTo fc channel idx chunk-size)]
+          (when (pos? n)
+            (recur (+ idx n)))))
+      (finally
+        (.close fc)))))
+
+
+;;; protocol extensions
+
+(extend-protocol Byteable
+
+  Byte
+  (to-byte [this] this)
+
+  Short
+  (to-byte [this] (byte this))
+
+  Integer
+  (to-byte [this] (byte this))
+
+  Long
+  (to-byte [this] (byte this)))
 
 (extend-protocol ByteSink
 
   OutputStream
-  (send-bytes! [this b]
+  (send-bytes! [this b _]
     (.write ^OutputStream this ^bytes (convert b bytes)))
 
   WritableByteChannel
-  (send-bytes! [this b]
+  (send-bytes! [this b _]
     (.write this ^ByteBuffer (convert b ByteBuffer))))
 
 (extend-protocol ByteSource
 
   InputStream
   (take-bytes! [this n _]
-    (let [ary (byte-array n)
+    (let [ary (clojure.core/byte-array n)
           n (long n)]
       (loop [idx 0]
         (if (== idx n)
@@ -444,7 +582,37 @@
 
   )
 
-;;;
+;;; print-bytes
+
+(let [special-character? (->> "' _-+=`~{}[]()\\/#@!?.,;\"" (map int) set)]
+  (defn- readable-character? [x]
+    (or
+      (Character/isLetterOrDigit (int x))
+      (special-character? (int x)))))
+
+(defn print-bytes
+  "Prints out the bytes in both hex and ASCII representations, 16 bytes per line."
+  [bytes]
+  (let [bufs (convert bytes (seq-of ByteBuffer) {:chunk-size 16})]
+    (doseq [^ByteBuffer buf bufs]
+      (let [s (convert buf String {:encoding "ascii"})
+            bytes (repeatedly (min 16 (.remaining buf)) #(.get buf))
+            padding (* 3 (- 16 (count bytes)))
+            hex-format #(->> "%02X" (repeat %) (interpose " ") (apply str))]
+        (println
+          (apply format
+            (str
+              (hex-format (min 8 (count bytes)))
+              "  "
+              (hex-format (max 0 (- (count bytes) 8))))
+            bytes)
+          (apply str (repeat padding " "))
+          "   "
+          (->> s
+            (map #(if (readable-character? %) % "."))
+            (apply str)))))))
+
+;;; to-* helpers
 
 (defn ^ByteBuffer to-byte-buffer
   "Converts the object to a java.nio.ByteBuffer."
@@ -473,6 +641,13 @@
      (to-readable-channel x nil))
   ([x options]
      (convert x ReadableByteChannel options)))
+
+(defn to-string
+  "Converts the object to a string."
+  ([x]
+     (to-string x nil))
+  ([x options]
+     (convert x String options)))
 
 (defn to-line-seq
   "Converts the object to a lazy sequence of newline-delimited strings."

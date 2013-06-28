@@ -28,7 +28,7 @@ byte-streams> (conversion-path String java.nio.ByteBuffer)
 (java.lang.String [B java.nio.ByteBuffer)
 ```
 
-While we can't turn a string into a `ByteBuffer`, we can turn a string into a `byte[]`, and `byte[]` into a `ByteBuffer`.  When invoked, `convert` will choose the minimal path along the graph of available conversions.  Common conversions are exposed via `to-byte-buffer`, `to-byte-array`, `to-input-stream`, `to-readable-channel`, and `to-line-seq`.  
+While we can't turn a string into a `ByteBuffer`, we can turn a string into a `byte[]`, and `byte[]` into a `ByteBuffer`.  When invoked, `convert` will choose the minimal path along the graph of available conversions.  Common conversions are exposed via `to-byte-buffer`, `to-byte-array`, `to-input-stream`, `to-readable-channel`, `to-string`, and `to-line-seq`.  
 
 Every type can exist either by itself, or as a sequence.  For instance, we can create an `InputStream` representing an infinite number of repeated strings:
 
@@ -42,27 +42,63 @@ And then we can turn that into a sequence of `ByteBuffers`:
 ```clj
 byte-streams> (take 2 
                 (convert *1 
-                  (many java.nio.ByteBuffer) 
+                  (seq-of java.nio.ByteBuffer) 
                   {:chunk-size 128}))
 (#<HeapByteBuffer java.nio.HeapByteBuffer[pos=0 lim=128 cap=128]> 
  #<HeapByteBuffer java.nio.HeapByteBuffer[pos=0 lim=128 cap=128]>)
 ```
 
-Notice that we describe a sequence of a type as `(many type)`, and that we've passed a map to `convert` describing the size of the `ByteBuffers` we want to create.  The two options that are currently supported are `:chunk-size`, which is relevant whenever we're converting a stream into a sequence of discrete chunks, and `:encoding`, which is relevant whenever we're encoding or decoding a string.
+Notice that we describe a sequence of a type as `(seq-of type)`, and that we've passed a map to `convert` describing the size of the `ByteBuffers` we want to create.  The two options that are currently supported are `:chunk-size`, which is relevant whenever we're converting a stream into a sequence of discrete chunks, and `:encoding`, which is relevant whenever we're encoding or decoding a string.
 
 ### custom conversions
 
 While there are conversions defined for all common byte types, this can be extended to other libraries via `byte-streams/def-conversion`:
 
 ```clj
+;; a conversion from byte-buffers to my-byte-representation
 (def-conversion [ByteBuffer MyByteRepresentation] 
   [buf options]
   (buffer->my-representation buf options))
 
+;; everything that can be converted to a ByteBuffer is transitively fair game now
 (convert "abc" MyByteRepresentation)
 ```
 
-This conversion transitively extends to all types that can be converted to a `ByteBuffer` (i.e. all of them).  This mechanism can even be used for types unrelated to byte streams, if you're feeling adventurous.
+This mechanism can even be used for types unrelated to byte streams, if you're feeling adventurous.
+
+### transfers
+
+Simple conversions are useful, but sometimes we'll need to do more than just keep the bytes in memory.  When you need to write bytes to a file, network socket, or other endpoints, you can use `byte-streams/transfer`.
+
+```clj
+byte-streams> (def f (File. "/tmp/salutations"))
+#'byte-streams/f
+byte-streams> (transfer "hello" f {:append? false})
+nil
+byte-streams> (to-string f)
+"hello"
+```
+
+`(transfer source sink options?)` allows you pipe anything that can produce bytes into anything that can receive bytes, using the most efficient mechanism available.  Custom transfer mechanisms can also be defined:
+
+```clj
+(def-transfer [InputStream MyByteSink]
+  [stream sink options]
+  (send-stream-to-my-sink stream sink))
+```
+
+### some utilities
+
+`byte-streams/print-bytes` will print both hexadecimal and ascii representations of a collection of bytes:
+
+```clj
+byte-streams> (print-bytes (-> #'print-bytes meta :doc))
+50 72 69 6E 74 73 20 6F  75 74 20 74 68 65 20 62      Prints out the b
+79 74 65 73 20 69 6E 20  62 6F 74 68 20 68 65 78      ytes in both hex
+20 61 6E 64 20 41 53 43  49 49 20 72 65 70 72 65       and ASCII repre
+73 65 6E 74 61 74 69 6F  6E 73 2C 20 31 36 20 62      sentations, 16 b
+79 74 65 73 20 70 65 72  20 6C 69 6E 65 2E            ytes per line.
+```
 
 ### license
 
