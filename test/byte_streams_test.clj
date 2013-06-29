@@ -29,10 +29,11 @@
     (.deleteOnExit)))
 
 (deftest test-transfer
-  (let [file (temp-file)]
-    (transfer text file {:chunk-size 128})
-    (is (= text (to-string file)))
-    (is (= text (to-string (to-byte-buffers file {:chunk-size 128}))))))
+  (doseq [dst (possible-conversions text)]
+    (let [file (temp-file)]
+      (transfer (convert text dst) file {:chunk-size 128})
+      (is (= text (to-string file)))
+      (is (= text (to-string (to-byte-buffers file {:chunk-size 128})))))))
 
 
 

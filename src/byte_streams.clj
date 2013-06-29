@@ -191,21 +191,23 @@
       ;; expand out the cartesian product of all possible starting and ending positions,
       ;; and choose the shortest
       (when-let [fns (->> (conversion-path src dst)
-                       (partition 2 1)
+                       (partition-all 2 1)
                        (map (fn [[a b :as a+b]]
-                              (if-let [f (get-in @src->dst->conversion a+b)]
-                                f
-                                
-                                ;; implicit (seq-of a) -> (seq-of b) conversion
-                                (if-let [f (when (every? seq-of? a+b)
-                                             (get-in @src->dst->conversion (map second a+b)))]
-                                  (fn [x options]
-                                    (map #(f % options) x))
+                              (if (nil? b)
+                                (fn [x _] x)
+                                (if-let [f (get-in @src->dst->conversion a+b)]
+                                  f
                                   
-                                  ;; this shouldn't ever happen, but let's have a decent error message all the same
-                                  (throw
-                                    (IllegalStateException.
-                                      (str "We thought we could convert between " a " and " b ", but we can't.")))))))
+                                  ;; implicit (seq-of a) -> (seq-of b) conversion
+                                  (if-let [f (when (every? seq-of? a+b)
+                                               (get-in @src->dst->conversion (map second a+b)))]
+                                    (fn [x options]
+                                      (map #(f % options) x))
+                                    
+                                    ;; this shouldn't ever happen, but let's have a decent error message all the same
+                                    (throw
+                                      (IllegalStateException.
+                                        (str "We thought we could convert between " a " and " b ", but we can't."))))))))
                        seq)]
         (fn [x options]
           (let [close-fns (atom [])
@@ -233,8 +235,14 @@
 
 (defn- source-type
   [x]
-  (if (or (sequential? x) (= object-array (class x)))
+  (cond
+    (or (class? x) (protocol? x))
+    x
+
+    (or (sequential? x) (= object-array (class x)))
     (seq-of (source-type (first x)))
+
+    :else
     (class x)))
 
 (defn convert
@@ -268,9 +276,7 @@
 (defn possible-conversions
   "Returns a list of all possible conversion targets from the initial value or class."
   [x]
-  (let [src (if (class? x)
-              x
-              (source-type x))]
+  (let [src (source-type x)]
     (->> @src->dst->conversion
       vals
       (mapcat keys)
