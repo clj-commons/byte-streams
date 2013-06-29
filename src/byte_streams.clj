@@ -80,10 +80,10 @@
            ~@body)))))
 
 (defn seq-of [x]
-  [:seq-of x])
+  (list 'seq-of x))
 
 (defn seq-of? [x]
-  (and (vector? x) (= :seq-of (first x))))
+  (and (list? x) (= 'seq-of (first x))))
 
 (defn protocol? [x]
   (and (map? x) (contains? x :impls)))
@@ -352,8 +352,8 @@
 
 (defn optimized-transfer?
   "Returns true if an optimized transfer function exists for the given source and sink objects."
-  [source sink]
-  (boolean (transfer-fn (source-type source) (source-type sink))))
+  [source-type sink-type]
+  (boolean (transfer-fn source-type sink-type)))
 
 ;;; conversion definitions
 

@@ -100,6 +100,39 @@ byte-streams> (print-bytes (-> #'print-bytes meta :doc))
 79 74 65 73 20 70 65 72  20 6C 69 6E 65 2E            ytes per line.
 ```
 
+`byte-streams/conversion-path` returns all the intermediate steps in transforming one type to another, if one exists:
+
+```clj
+byte-streams> (conversion-path java.io.File String)
+(java.io.File 
+ (seq-of java.nio.ByteBuffer) 
+ java.nio.ByteBuffer 
+ [B 
+ java.lang.String)
+
+;; but if a conversion is impossible...
+byte-streams> (conversion-path java.io.OutputStream java.io.InputStream)
+nil
+```
+
+`byte-streams/possible-conversions` returns a list of possible conversion targets for an object or type:
+
+```clj
+byte-streams> (possible-conversions String)
+(java.lang.String java.io.InputStream java.nio.DirectByteBuffer java.nio.ByteBuffer (seq-of java.nio.ByteBuffer) java.io.Reader java.nio.channels.ReadableByteChannel [B java.lang.CharSequence)
+
+;; we can ask the same of an instance of that type
+byte-streams> (possible-conversions "abc")
+(java.lang.String java.io.InputStream java.nio.DirectByteBuffer java.nio.ByteBuffer (seq-of java.nio.ByteBuffer) java.io.Reader java.nio.channels.ReadableByteChannel [B java.lang.CharSequence)
+```
+
+`byte-streams/optimized-transfer?` returns true if there is an optimized transfer method for two types:
+
+```clj
+byte-streams> (optimized-transfer? String java.io.File)
+true
+```
+
 ### license
 
 Copyright © 2013 Zachary Tellman
