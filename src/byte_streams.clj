@@ -461,7 +461,7 @@
                  (.configureBlocking true))]
     (future
       (loop [s bufs]
-        (when (.isOpen sink)
+        (when (and (not (empty? s)) (.isOpen sink))
           (.write sink (first s))
           (recur (rest s))))
       (.close sink))

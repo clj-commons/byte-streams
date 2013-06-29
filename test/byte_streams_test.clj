@@ -17,8 +17,12 @@
         [src dst]))))
 
 (deftest test-roundtrips
-  (doseq [dst (possible-conversions text)]
-    (is (= text (-> text (convert dst {:chunk-size 128}) (convert String))))))
+  (let [pairwise-conversions (->> text
+                               possible-conversions
+                               (mapcat #(map list (repeat %) (possible-conversions %)))
+                               distinct)]
+    (doseq [[src dst] pairwise-conversions]
+      (is (= text (-> text (convert src) (convert dst) (convert String)))))))
 
 (defn temp-file []
   (doto (File/createTempFile "byte-streams" ".tmp")
