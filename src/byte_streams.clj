@@ -23,6 +23,7 @@
      ReadableByteChannel
      WritableByteChannel
      FileChannel
+     FileChannel$MapMode
      Channels
      Pipe]
     [java.nio.channels.spi
@@ -222,7 +223,11 @@
               (if (sequential? result)
                 (exhaustible-seq result close-fn)
                 (do
-                  (close-fn)
+                  ;; we assume that if the end-result is closeable, it will take care of all the intermediate
+                  ;; objects beneath it.  I think this is true as long as we're not doing multiple streaming
+                  ;; reads, but this might need to be revisited.
+                  (when-not (satisfies? Closeable result)
+                    (close-fn))
                   result))
               result)))))))
 
@@ -291,8 +296,10 @@
                                    (when-let [dst' (some
                                                      #(and (conversion-path dst %) %)
                                                      (keys (@src->dst->transfer src')))]
-                                     [src' dst']))))
-                          first)]
+                                     [(conversion-path src src') [src' dst']]))))
+                          (sort-by (comp count first))
+                          first
+                          second)]
         (cond
           
           (and src' dst')
@@ -342,6 +349,11 @@
          (if (seq-of? src)
            (throw (IllegalArgumentException. (str "Don't know how to transfer between a sequence of " (second src) " to " dst)))
            (throw (IllegalArgumentException. (str "Don't know how to transfer between " src " to " dst))))))))
+
+(defn optimized-transfer?
+  "Returns true if an optimized transfer function exists for the given source and sink objects."
+  [source sink]
+  (boolean (transfer-fn (source-type source) (source-type sink))))
 
 ;;; conversion definitions
 
@@ -394,16 +406,23 @@
       (doto buf .mark (.get ary) .reset)
       ary)))
 
-;; sequence of byte-arrays => byte-buffer
+;; sequence of byte-buffers => byte-buffer
 (def-conversion [(seq-of ByteBuffer) ByteBuffer]
   [bufs {:keys [direct?] :or {direct? false}}]
-  (let [len (reduce + (map #(.remaining ^ByteBuffer %) bufs))
-        buf (if direct?
-              (ByteBuffer/allocateDirect len)
-              (ByteBuffer/allocate len))]
-    (doseq [^ByteBuffer b bufs]
-      (.put buf b))
-    (.flip buf)))
+  (if (empty? (rest bufs))
+    (first bufs)
+    (let [len (reduce + (map #(.remaining ^ByteBuffer %) bufs))
+          buf (if direct?
+                (ByteBuffer/allocateDirect len)
+                (ByteBuffer/allocate len))]
+      (doseq [^ByteBuffer b bufs]
+        (.put buf b))
+      (.flip buf))))
+
+;; byte-buffer => sequence of byte-buffers
+(def-conversion [ByteBuffer (seq-of ByteBuffer)]
+  [buf]
+  [buf])
 
 ;; channel => input-stream
 (def-conversion [ReadableByteChannel InputStream]
@@ -471,15 +490,40 @@
   [char-sequence]
   (.toString char-sequence))
 
-;; file => readable channel
+;; file => readable-channel
 (def-conversion [File ReadableByteChannel]
   [file]
   (.getChannel (FileInputStream. file)))
 
-;; file => writable channel
+;; file => writable-channel
 (def-conversion [File WritableByteChannel]
   [file {:keys [append?] :or {append? true}}]
   (.getChannel (FileOutputStream. file (boolean append?))))
+
+(def-conversion [File (seq-of ByteBuffer)]
+  [file {:keys [chunk-size] :or {chunk-size (int 1e9)}}]
+  (let [^FileChannel fc (convert file ReadableByteChannel)
+        buf-seq (fn buf-seq [offset]
+                  (when-not (<= (.size fc) offset)
+                    (let [remaining (- (.size fc) offset)]
+                      (lazy-seq
+                        (cons
+                          (.map fc
+                            FileChannel$MapMode/READ_ONLY
+                            offset
+                            (min remaining chunk-size))
+                          (buf-seq (+ offset chunk-size)))))))]
+    (buf-seq 0)))
+
+;; output-stream => writable-channel
+(def-conversion [OutputStream WritableByteChannel]
+  [output-stream]
+  (Channels/newChannel output-stream))
+
+;; writable-channel => output-stream
+(def-conversion [WritableByteChannel OutputStream]
+  [channel]
+  (Channels/newOutputStream channel))
 
 ;;; def-transfers
 
@@ -495,7 +539,7 @@
         (.close fc)))))
 
 (def-transfer [File WritableByteChannel]
-  [file channel {:keys [chunk-size] :or {chunk-size (int 1e7)} :as options}]
+  [file channel {:keys [chunk-size] :or {chunk-size (int 1e6)} :as options}]
   (let [^FileChannel fc (convert file ReadableByteChannel options)]
     (try
       (loop [idx 0]
@@ -505,6 +549,15 @@
       (finally
         (.close fc)))))
 
+(def-transfer [InputStream OutputStream]
+  [input-stream output-stream {:keys [chunk-size] :or {chunk-size 4096} :as options}]
+  (let [ary (clojure.core/byte-array chunk-size)]
+    (loop []
+      (let [n (.read input-stream ary)]
+        (when (pos? n)
+          (.write output-stream ary 0 n)
+          (.flush output-stream)
+          (recur)))))) 
 
 ;;; protocol extensions
 
@@ -620,6 +673,13 @@
      (to-byte-buffer x nil))
   ([x options]
      (convert x ByteBuffer options)))
+
+(defn ^ByteBuffer to-byte-buffers
+  "Converts the object to a java.nio.ByteBuffer."
+  ([x]
+     (to-byte-buffer x nil))
+  ([x options]
+     (convert x (seq-of ByteBuffer) options)))
 
 (defn ^bytes to-byte-array
   "Converts the object to a byte-array."

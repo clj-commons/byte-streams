@@ -27,7 +27,8 @@
 (deftest test-transfer
   (let [file (temp-file)]
     (transfer text file {:chunk-size 128})
-    (is (= text (to-string file)))))
+    (is (= text (to-string file)))
+    (is (= text (to-string (to-byte-buffers file {:chunk-size 128}))))))
 
 
 
