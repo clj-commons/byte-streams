@@ -16,6 +16,7 @@
      ByteArrayInputStream
      InputStream
      OutputStream
+     RandomAccessFile
      Reader
      InputStreamReader
      BufferedReader]
@@ -157,9 +158,9 @@
     (remove nil?)
     shortest))
 
-(defn- exhaustible-seq [s close-fn]
+(defn- closeable-seq [s exhaustible? close-fn]
   (if (empty? s)
-    (do
+    (when exhaustible?
       (close-fn)
       nil)
     (reify
@@ -172,9 +173,9 @@
       clojure.lang.ISeq
       clojure.lang.Seqable
       (cons [_ a]
-        (exhaustible-seq (cons a s) close-fn))
+        (closeable-seq (cons a s) exhaustible? close-fn))
       (next [this]
-        (exhaustible-seq (next s) close-fn))
+        (closeable-seq (next s) exhaustible? close-fn))
       (more [this]
         (let [rst (next this)]
           (if (empty? rst)
@@ -223,7 +224,7 @@
             (if-let [close-fn (when-let [fns (seq @close-fns)]
                                 #(doseq [f fns] (f)))] 
               (if (sequential? result)
-                (exhaustible-seq result close-fn)
+                (closeable-seq result true close-fn)
                 (do
                   ;; we assume that if the end-result is closeable, it will take care of all the intermediate
                   ;; objects beneath it.  I think this is true as long as we're not doing multiple streaming
@@ -415,7 +416,8 @@
 ;; sequence of byte-buffers => byte-buffer
 (def-conversion [(seq-of ByteBuffer) ByteBuffer]
   [bufs {:keys [direct?] :or {direct? false}}]
-  (if (empty? (rest bufs))
+  (if (and (empty? (rest bufs))
+        (not (satisfies? Closeable bufs)))
     (first bufs)
     (let [len (reduce + (map #(.remaining ^ByteBuffer %) bufs))
           buf (if direct?
@@ -423,6 +425,8 @@
                 (ByteBuffer/allocate len))]
       (doseq [^ByteBuffer b bufs]
         (.put buf b))
+      (when (satisfies? Closeable bufs)
+        (close bufs))
       (.flip buf))))
 
 ;; byte-buffer => sequence of byte-buffers
@@ -507,19 +511,27 @@
   (.getChannel (FileOutputStream. file (boolean append?))))
 
 (def-conversion [File (seq-of ByteBuffer)]
-  [file {:keys [chunk-size] :or {chunk-size (int 1e9)}}]
-  (let [^FileChannel fc (convert file ReadableByteChannel)
+  [file {:keys [chunk-size writable?] :or {chunk-size (int 2e9), writable? false}}]
+  (let [^RandomAccessFile raf (RandomAccessFile. file (if writable? "rw" "r"))
+        ^FileChannel fc (.getChannel raf)
         buf-seq (fn buf-seq [offset]
                   (when-not (<= (.size fc) offset)
                     (let [remaining (- (.size fc) offset)]
                       (lazy-seq
                         (cons
-                          (.map fc
-                            FileChannel$MapMode/READ_ONLY
+                          (.map fc 
+                            (if writable?
+                              FileChannel$MapMode/READ_WRITE
+                              FileChannel$MapMode/READ_ONLY)
                             offset
                             (min remaining chunk-size))
                           (buf-seq (+ offset chunk-size)))))))]
-    (buf-seq 0)))
+    (closeable-seq
+      (buf-seq 0)
+      false
+      #(do
+         (.close raf)
+         (.close fc)))))
 
 ;; output-stream => writable-channel
 (def-conversion [OutputStream WritableByteChannel]
@@ -681,9 +693,9 @@
      (convert x ByteBuffer options)))
 
 (defn ^ByteBuffer to-byte-buffers
-  "Converts the object to a java.nio.ByteBuffer."
+  "Converts the object to a sequence of java.nio.ByteBuffer."
   ([x]
-     (to-byte-buffer x nil))
+     (to-byte-buffers x nil))
   ([x options]
      (convert x (seq-of ByteBuffer) options)))
 
