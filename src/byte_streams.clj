@@ -46,8 +46,8 @@
 
 ;;;
 
-(def ^:private src->dst->conversion (atom nil))
-(def ^:private src->dst->transfer (atom nil))
+(defonce ^:private src->dst->conversion (atom nil))
+(defonce ^:private src->dst->transfer (atom nil))
 
 (def ^:private object-array (class (clojure.core/object-array 0)))
 (def ^:private byte-array (class (clojure.core/byte-array 0)))
@@ -234,14 +234,15 @@
                   result))
               result)))))))
 
-(defn- source-type
+(defn type-descriptor
+  "Returns a descriptor that can be used with `conversion-path`."
   [x]
   (cond
     (or (class? x) (protocol? x))
     x
 
     (or (sequential? x) (= object-array (class x)))
-    (seq-of (source-type (first x)))
+    (seq-of (type-descriptor (first x)))
 
     :else
     (class x)))
@@ -261,8 +262,8 @@
   ([x dst]
      (convert x dst nil))
   ([x dst options]
-     (when-not (and (sequential? x) (empty? x))
-       (let [src (source-type x)]
+     (when-not (or (nil? x) (and (sequential? x) (empty? x)))
+       (let [src (type-descriptor x)]
          (if (or
                (= src dst)
                (and (class? src) (class? dst) (.isAssignableFrom ^Class dst src)))
@@ -277,7 +278,7 @@
 (defn possible-conversions
   "Returns a list of all possible conversion targets from the initial value or class."
   [x]
-  (let [src (source-type x)]
+  (let [src (type-descriptor x)]
     (->> @src->dst->conversion
       vals
       (mapcat keys)
@@ -349,8 +350,8 @@
   ([source sink]
      (transfer source sink nil))
   ([source sink options]
-     (let [src (source-type source)
-           dst (source-type sink)]
+     (let [src (type-descriptor source)
+           dst (type-descriptor sink)]
        (if-let [f (transfer-fn src dst)]
          (f source sink options)
          (if (seq-of? src)
@@ -359,8 +360,8 @@
 
 (defn optimized-transfer?
   "Returns true if an optimized transfer function exists for the given source and sink objects."
-  [source-type sink-type]
-  (boolean (transfer-fn source-type sink-type)))
+  [type-descriptor sink-type]
+  (boolean (transfer-fn type-descriptor sink-type)))
 
 ;;; conversion definitions
 
@@ -401,7 +402,7 @@
 (def-conversion [ByteBuffer byte-array]
   [buf]
   (if (.hasArray buf)
-    (if (= (.capacity buf) (.remaining buf))
+    (if (= (alength (.array buf)) (.remaining buf))
       (.array buf)
       (let [ary (clojure.core/byte-array (.remaining buf))]
         (doto buf
@@ -431,8 +432,18 @@
 
 ;; byte-buffer => sequence of byte-buffers
 (def-conversion [ByteBuffer (seq-of ByteBuffer)]
-  [buf]
-  [buf])
+  [buf {:keys [chunk-size]}]
+  (if chunk-size
+    (let [cnt (.remaining buf)
+          indices (take-while #(< % cnt) (iterate #(+ % chunk-size) 0))]
+      (map
+        #(-> buf
+           .duplicate
+           (.position %)
+           ^ByteBuffer (.limit (min cnt (+ % chunk-size)))
+           .slice)
+        indices))
+    [buf]))
 
 ;; channel => input-stream
 (def-conversion [ReadableByteChannel InputStream]
