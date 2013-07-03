@@ -241,6 +241,9 @@
     (or (class? x) (protocol? x))
     x
 
+    (contains? @src->dst->conversion (class x))
+    (class x)
+
     (or (sequential? x) (= object-array (class x)))
     (seq-of (type-descriptor (first x)))
 
@@ -425,7 +428,8 @@
                 (ByteBuffer/allocateDirect len)
                 (ByteBuffer/allocate len))]
       (doseq [^ByteBuffer b bufs]
-        (.put buf b))
+        (.put buf b)
+        (.rewind b))
       (when (satisfies? Closeable bufs)
         (close bufs))
       (.flip buf))))
@@ -731,7 +735,7 @@
   ([x options]
      (convert x ReadableByteChannel options)))
 
-(defn to-string
+(defn ^String to-string
   "Converts the object to a string."
   ([x]
      (to-string x nil))
@@ -743,7 +747,8 @@
   ([x]
      (to-line-seq x nil))
   ([x options]
-     (line-seq (convert x Reader options))))
+     (let [^Reader reader (convert x Reader options)]
+       (closeable-seq (line-seq reader) true #(.close reader)))))
 
 (defn to-byte-source
   "Converts the object to something that satisfies ByteSource."
