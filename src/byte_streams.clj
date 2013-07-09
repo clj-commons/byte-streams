@@ -36,7 +36,7 @@
   (to-byte [_] "Converts the object to a single byte."))
 
 (defprotocol Closeable
-  (close [_] "A protocols that is a superset of java.io.Closeable."))
+  (close [_] "A protocol that is a superset of `java.io.Closeable`."))
 
 (defprotocol ByteSource
   (take-bytes! [_ n options] "Takes `n` bytes from the byte source."))
@@ -258,8 +258,10 @@
 
    `chunk-size` - if a stream is being transformed into a sequence of discrete chunks, `:chunk-size` describes the
                   size of the chunks, which default to 4096 bytes.
+
    `encoding`   - if a string is being encoded or decoded, `:encoding` describes the charset that is used, which
                   defaults to 'utf-8'
+
    `direct?`    - if a byte-buffer is being allocated, `:direct?` describes whether it should be a direct buffer,
                   defaulting to false"
   ([x dst]
@@ -346,8 +348,10 @@
 
    `chunk-size` - if a stream is being transformed into a sequence of discrete chunks, `:chunk-size` describes the
                   size of the chunks, which default to 4096 bytes.
+
    `encoding`   - if a string is being encoded or decoded, `:encoding` describes the charset that is used, which
                   defaults to 'utf-8'
+
    `append?`    - if a file is being written to, `:append?` determines whether the bytes will overwrite the existing content
                   or be appended to the end of the file.  This defaults to true."
   ([source sink]
@@ -701,14 +705,14 @@
 ;;; to-* helpers
 
 (defn ^ByteBuffer to-byte-buffer
-  "Converts the object to a java.nio.ByteBuffer."
+  "Converts the object to a `java.nio.ByteBuffer`."
   ([x]
      (to-byte-buffer x nil))
   ([x options]
      (convert x ByteBuffer options)))
 
 (defn ^ByteBuffer to-byte-buffers
-  "Converts the object to a sequence of java.nio.ByteBuffer."
+  "Converts the object to a sequence of `java.nio.ByteBuffer`."
   ([x]
      (to-byte-buffers x nil))
   ([x options]
@@ -722,14 +726,21 @@
      (convert x byte-array options)))
 
 (defn ^InputStream to-input-stream
-  "Converts the object to an java.io.InputStream."
+  "Converts the object to a `java.io.InputStream`."
   ([x]
      (to-input-stream x nil))
   ([x options]
      (convert x InputStream options)))
 
+(defn ^CharSequence to-char-sequence
+  "Converts to the object to a `java.lang.CharSequence`."
+  ([x]
+     (to-char-sequence x nil))
+  ([x options]
+     (convert x CharSequence options)))
+
 (defn ^ReadableByteChannel to-readable-channel
-  "Converts the object to a java.nio.ReadableByteChannel"
+  "Converts the object to a `java.nio.ReadableByteChannel`"
   ([x]
      (to-readable-channel x nil))
   ([x options]
@@ -751,14 +762,14 @@
        (closeable-seq (line-seq reader) true #(.close reader)))))
 
 (defn to-byte-source
-  "Converts the object to something that satisfies ByteSource."
+  "Converts the object to something that satisfies `ByteSource`."
   ([x]
      (to-byte-source x nil))
   ([x options]
      (convert x ByteSource options)))
 
 (defn to-byte-sink
-  "Converts the object to something that satisfies ByteSink."
+  "Converts the object to something that satisfies `ByteSink`."
   ([x]
      (to-byte-sink x nil))
   ([x options]
