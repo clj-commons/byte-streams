@@ -1,0 +1,250 @@
+<html lang="en">
+  <head>
+    <title>byte-streams documentation</title>
+    <link href="css/default.css" type="text/css" rel="stylesheet" />
+    <link href="css/codox-md.css" type="text/css" rel="stylesheet" />
+    <script type="text/javascript" src="js/jquery.min.js"></script>
+    <script type="text/javascript" src="js/page_effects.js"></script>
+  </head>
+  <body>
+    <header>
+      <div id="header">
+        <h1 class="project-title">Byte-streams 0.1.1-SNAPSHOT API documentation</h1>
+      </div>
+    </header>
+    <navigation>
+      <div id="namespaces" class="sidebar">
+        <h3>Namespaces</h3>
+        <ul class="ns-links">
+          <li class="ns-list"><a class="ns-link ns-name" href="byte-streams.html">byte-streams</a></li>
+        </ul>
+      </div>
+      <div id="vars" class="sidebar">
+        <h3>Public Vars</h3>
+        <ul class="ns-var-links">
+          <li class="ns-var-list"><a class="ns-var-link ns-var-name" href="byte-streams.html#var-close">close</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="byte-streams.html#var-conversion-path">conversion-path</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="byte-streams.html#var-convert">convert</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="byte-streams.html#var-def-conversion">def-conversion</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="byte-streams.html#var-def-transfer">def-transfer</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="byte-streams.html#var-optimized-transfer%3F">optimized-transfer?</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="byte-streams.html#var-possible-conversions">possible-conversions</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="byte-streams.html#var-print-bytes">print-bytes</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="byte-streams.html#var-send-bytes%21">send-bytes!</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="byte-streams.html#var-take-bytes%21">take-bytes!</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="byte-streams.html#var-to-byte">to-byte</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="byte-streams.html#var-to-byte-array">to-byte-array</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="byte-streams.html#var-to-byte-buffer">to-byte-buffer</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="byte-streams.html#var-to-byte-buffers">to-byte-buffers</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="byte-streams.html#var-to-byte-sink">to-byte-sink</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="byte-streams.html#var-to-byte-source">to-byte-source</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="byte-streams.html#var-to-char-sequence">to-char-sequence</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="byte-streams.html#var-to-input-stream">to-input-stream</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="byte-streams.html#var-to-line-seq">to-line-seq</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="byte-streams.html#var-to-readable-channel">to-readable-channel</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="byte-streams.html#var-to-string">to-string</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="byte-streams.html#var-transfer">transfer</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="byte-streams.html#var-type-descriptor">type-descriptor</a></li>
+        </ul>
+      </div>
+    </navigation>
+    <article>
+      <div id="content" class="namespace-docs">
+        <h2 class="namespace-title">byte-streams documentation</h2>
+        <div class="doc">
+</div>
+        <div class="ns-vars">
+          <div class="public">
+            <h3><a id="var-close" class="source var-name" href="/">close</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[_]</div>
+            
+            
+            <div class="doc"><p>A protocol that is a superset of <code>java.io.Closeable</code>.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-conversion-path" class="source var-name" href="/src/byte_streams.clj">conversion-path</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[src dst]</div>
+            
+            
+            <div class="doc"><p>Returns the path, if any, of type conversion that will transform type <code>src</code>, which must be a class or (seq-of class)
+into type <code>dst</code>, which can be either a class, a protocol, or (seq-of class-or-protocol).</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-convert" class="source var-name" href="/src/byte_streams.clj">convert</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[x dst]</div><div class="usage">[x dst options]</div>
+            
+            
+            <div class="doc"><p>Converts <code>x</code>, if possible, into type <code>dst</code>, which can be either a class or protocol.  If no such conversion
+is possible, an IllegalArgumentException is thrown.</p>
+
+<p><code>options</code> is a map, whose available settings depend on what sort of transform is being performed:</p>
+
+<p><code>chunk-size</code> - if a stream is being transformed into a sequence of discrete chunks, <code>:chunk-size</code> describes the
+               size of the chunks, which default to 4096 bytes.</p>
+
+<p><code>encoding</code>   - if a string is being encoded or decoded, <code>:encoding</code> describes the charset that is used, which
+               defaults to 'utf-8'</p>
+
+<p><code>direct?</code>    - if a byte-buffer is being allocated, <code>:direct?</code> describes whether it should be a direct buffer,
+               defaulting to false</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-def-conversion" class="source var-name" href="/src/byte_streams.clj">def-conversion</a></h3>
+            <h4 class="var-type macro" id="var-type">macro</h4>
+            <div class="usage">[[src dst] params &amp; body]</div>
+            
+            
+            <div class="doc"><p>Defines a conversion from one type to another.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-def-transfer" class="source var-name" href="/src/byte_streams.clj">def-transfer</a></h3>
+            <h4 class="var-type macro" id="var-type">macro</h4>
+            <div class="usage">[[src dst] params &amp; body]</div>
+            
+            
+            <div class="doc"><p>Defines a byte transfer from one type to another.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-optimized-transfer%3F" class="source var-name" href="/src/byte_streams.clj">optimized-transfer?</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[type-descriptor sink-type]</div>
+            
+            
+            <div class="doc"><p>Returns true if an optimized transfer function exists for the given source and sink objects.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-possible-conversions" class="source var-name" href="/src/byte_streams.clj">possible-conversions</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[x]</div>
+            
+            
+            <div class="doc"><p>Returns a list of all possible conversion targets from the initial value or class.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-print-bytes" class="source var-name" href="/src/byte_streams.clj">print-bytes</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[bytes]</div>
+            
+            
+            <div class="doc"><p>Prints out the bytes in both hex and ASCII representations, 16 bytes per line.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-send-bytes%21" class="source var-name" href="/">send-bytes!</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[_ bytes options]</div>
+            
+            
+            <div class="doc"><p>Puts <code>bytes</code> in the byte sink.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-take-bytes%21" class="source var-name" href="/">take-bytes!</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[_ n options]</div>
+            
+            
+            <div class="doc"><p>Takes <code>n</code> bytes from the byte source.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-to-byte" class="source var-name" href="/">to-byte</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[_]</div>
+            
+            
+            <div class="doc"><p>Converts the object to a single byte.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-to-byte-array" class="source var-name" href="/src/byte_streams.clj">to-byte-array</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[x]</div><div class="usage">[x options]</div>
+            
+            
+            <div class="doc"><p>Converts the object to a byte-array.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-to-byte-buffer" class="source var-name" href="/src/byte_streams.clj">to-byte-buffer</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[x]</div><div class="usage">[x options]</div>
+            
+            
+            <div class="doc"><p>Converts the object to a <code>java.nio.ByteBuffer</code>.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-to-byte-buffers" class="source var-name" href="/src/byte_streams.clj">to-byte-buffers</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[x]</div><div class="usage">[x options]</div>
+            
+            
+            <div class="doc"><p>Converts the object to a sequence of <code>java.nio.ByteBuffer</code>.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-to-byte-sink" class="source var-name" href="/src/byte_streams.clj">to-byte-sink</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[x]</div><div class="usage">[x options]</div>
+            
+            
+            <div class="doc"><p>Converts the object to something that satisfies <code>ByteSink</code>.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-to-byte-source" class="source var-name" href="/src/byte_streams.clj">to-byte-source</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[x]</div><div class="usage">[x options]</div>
+            
+            
+            <div class="doc"><p>Converts the object to something that satisfies <code>ByteSource</code>.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-to-char-sequence" class="source var-name" href="/src/byte_streams.clj">to-char-sequence</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[x]</div><div class="usage">[x options]</div>
+            
+            
+            <div class="doc"><p>Converts to the object to a <code>java.lang.CharSequence</code>.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-to-input-stream" class="source var-name" href="/src/byte_streams.clj">to-input-stream</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[x]</div><div class="usage">[x options]</div>
+            
+            
+            <div class="doc"><p>Converts the object to a <code>java.io.InputStream</code>.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-to-line-seq" class="source var-name" href="/src/byte_streams.clj">to-line-seq</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[x]</div><div class="usage">[x options]</div>
+            
+            
+            <div class="doc"><p>Converts the object to a lazy sequence of newline-delimited strings.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-to-readable-channel" class="source var-name" href="/src/byte_streams.clj">to-readable-channel</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[x]</div><div class="usage">[x options]</div>
+            
+            
+            <div class="doc"><p>Converts the object to a <code>java.nio.ReadableByteChannel</code></p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-to-string" class="source var-name" href="/src/byte_streams.clj">to-string</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[x]</div><div class="usage">[x options]</div>
+            
+            
+            <div class="doc"><p>Converts the object to a string.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-transfer" class="source var-name" href="/src/byte_streams.clj">transfer</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[source sink]</div><div class="usage">[source sink options]</div>
+            
+            
+            <div class="doc"><p>Transfers, if possible, all bytes from <code>source</code> into <code>sink</code>.  If this cannot be accomplished, an IllegalArgumentException is
+thrown.</p>
+
+<p><code>options</code> is a map whose available settings depends on the source and sink types:</p>
+
+<p><code>chunk-size</code> - if a stream is being transformed into a sequence of discrete chunks, <code>:chunk-size</code> describes the
+               size of the chunks, which default to 4096 bytes.</p>
+
+<p><code>encoding</code>   - if a string is being encoded or decoded, <code>:encoding</code> describes the charset that is used, which
+               defaults to 'utf-8'</p>
+
+<p><code>append?</code>    - if a file is being written to, <code>:append?</code> determines whether the bytes will overwrite the existing content
+               or be appended to the end of the file.  This defaults to true.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-type-descriptor" class="source var-name" href="/src/byte_streams.clj">type-descriptor</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[x]</div>
+            
+            
+            <div class="doc"><p>Returns a descriptor that can be used with <code>conversion-path</code>.</p>
+</div>
+          </div>
+        </div>
+      </div>
+    </article>
+  </body>
+
+</html>
