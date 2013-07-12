@@ -77,7 +77,7 @@
       (eval
         `(fn [~(with-meta (first params) {:tag src})
               ~(with-meta (second params) {:tag dst})
-              ~(if-let [options (nth params 2)] options (gensym "options"))]
+              ~(if-let [options (get params 2)] options (gensym "options"))]
            ~@body)))))
 
 (defn seq-of [x]
