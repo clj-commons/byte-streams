@@ -719,7 +719,7 @@
   ([x options]
      (convert x (seq-of ByteBuffer) options)))
 
-(defn ^bytes to-byte-array
+(defn ^"[B" to-byte-array
   "Converts the object to a byte-array."
   ([x]
      (to-byte-array x nil))
