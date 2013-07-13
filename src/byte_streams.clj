@@ -415,7 +415,7 @@
         (doto buf
           .mark
           (.get ary 0 (.remaining buf))
-          .rewind)
+          .reset)
         ary))
     (let [^bytes ary (Array/newInstance Byte/TYPE (.remaining buf))]
       (doto buf .mark (.get ary) .reset)
@@ -432,8 +432,9 @@
                 (ByteBuffer/allocateDirect len)
                 (ByteBuffer/allocate len))]
       (doseq [^ByteBuffer b bufs]
+        (.mark b)
         (.put buf b)
-        (.rewind b))
+        (.reset b))
       (when (satisfies? Closeable bufs)
         (close bufs))
       (.flip buf))))
@@ -442,13 +443,13 @@
 (def-conversion [ByteBuffer (seq-of ByteBuffer)]
   [buf {:keys [chunk-size]}]
   (if chunk-size
-    (let [cnt (.remaining buf)
-          indices (take-while #(< % cnt) (iterate #(+ % chunk-size) 0))]
+    (let [lim (.limit buf)
+          indices (range (.position buf) lim chunk-size)]
       (map
         #(-> buf
            .duplicate
            (.position %)
-           ^ByteBuffer (.limit (min cnt (+ % chunk-size)))
+           ^ByteBuffer (.limit (min lim (+ % chunk-size)))
            .slice)
         indices))
     [buf]))
@@ -718,7 +719,7 @@
   ([x options]
      (convert x (seq-of ByteBuffer) options)))
 
-(defn ^bytes to-byte-array
+(defn ^"[B" to-byte-array
   "Converts the object to a byte-array."
   ([x]
      (to-byte-array x nil))
@@ -774,6 +775,3 @@
      (to-byte-sink x nil))
   ([x options]
      (convert x ByteSink options)))
-
-
-
