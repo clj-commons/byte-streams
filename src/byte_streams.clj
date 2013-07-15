@@ -75,8 +75,9 @@
 
 (defmacro def-conversion
   "Defines a conversion from one type to another."
-  [[src dst] params & body]
-  (let [src' (abstract-type-descriptor src)
+  [[src dst :as conversion] params & body]
+  (let [mt (meta conversion)
+        src' (abstract-type-descriptor src)
         dst' (abstract-type-descriptor dst)]
     (swap! src->dst->conversion assoc-in [src' dst']
       (with-meta
@@ -90,7 +91,9 @@
                    options
                    `_#)]
              ~@body))
-        {::conversion [src' dst']})))
+        (merge
+          mt
+          {::conversion [src' dst']}))))
   nil)
 
 (defmacro def-transfer
@@ -113,7 +116,17 @@
   (*searched* [k dst]))
 
 (defn- shortest [s]
-  (->> s (sort-by count) first))
+  (->> s
+    (sort-by
+      #(->> %
+         (map (fn [a+b]
+                (-> (get-in @src->dst->transfer a+b
+                      (when (every? seq-of? a+b)
+                        (get-in @src->dst->conversion (map second a+b))))
+                  meta
+                  (get :cost 1))))
+         (reduce +)))
+    first))
 
 (defn- class-satisfies? [protocol ^Class c]
   (boolean
@@ -435,7 +448,7 @@
         (convert (drop cnt s) (seq-of ByteBuffer) options)))))
 
 ;; byte-array => byte-buffer
-(def-conversion [byte-array ByteBuffer]
+(def-conversion ^{:cost 0} [byte-array ByteBuffer]
   [ary]
   (ByteBuffer/wrap ary))
 
@@ -449,7 +462,7 @@
     buf))
 
 ;; byte-array => input-stream
-(def-conversion [byte-array InputStream]
+(def-conversion ^{:cost 0} [byte-array InputStream]
   [ary]
   (ByteArrayInputStream. ary))
 
@@ -488,7 +501,7 @@
       (.flip buf))))
 
 ;; byte-buffer => sequence of byte-buffers
-(def-conversion [ByteBuffer (seq-of ByteBuffer)]
+(def-conversion ^{:cost 0} [ByteBuffer (seq-of ByteBuffer)]
   [buf {:keys [chunk-size]}]
   (if chunk-size
     (let [lim (.limit buf)
@@ -503,7 +516,7 @@
     [buf]))
 
 ;; channel => input-stream
-(def-conversion [ReadableByteChannel InputStream]
+(def-conversion ^{:cost 0} [ReadableByteChannel InputStream]
   [channel]
   (Channels/newInputStream channel))
 
@@ -516,7 +529,7 @@
         (cons b (convert channel (seq-of ByteBuffer) options))))))
 
 ;; input-stream => channel
-(def-conversion [InputStream ReadableByteChannel]
+(def-conversion ^{:cost 0} [InputStream ReadableByteChannel]
   [input-stream]
   (Channels/newChannel input-stream))
 
@@ -585,16 +598,16 @@
     (.toString sb)))
 
 ;; file => readable-channel
-(def-conversion [File ReadableByteChannel]
+(def-conversion ^{:cost 0} [File ReadableByteChannel]
   [file]
   (.getChannel (FileInputStream. file)))
 
 ;; file => writable-channel
-(def-conversion [File WritableByteChannel]
+(def-conversion ^{:cost 0} [File WritableByteChannel]
   [file {:keys [append?] :or {append? true}}]
   (.getChannel (FileOutputStream. file (boolean append?))))
 
-(def-conversion [File (seq-of ByteBuffer)]
+(def-conversion ^{:cost 0} [File (seq-of ByteBuffer)]
   [file {:keys [chunk-size writable?] :or {chunk-size (int 2e9), writable? false}}]
   (let [^RandomAccessFile raf (RandomAccessFile. file (if writable? "rw" "r"))
         ^FileChannel fc (.getChannel raf)
@@ -618,12 +631,12 @@
          (.close fc)))))
 
 ;; output-stream => writable-channel
-(def-conversion [OutputStream WritableByteChannel]
+(def-conversion ^{:cost 0} [OutputStream WritableByteChannel]
   [output-stream]
   (Channels/newChannel output-stream))
 
 ;; writable-channel => output-stream
-(def-conversion [WritableByteChannel OutputStream]
+(def-conversion ^{:cost 0} [WritableByteChannel OutputStream]
   [channel]
   (Channels/newOutputStream channel))
 
