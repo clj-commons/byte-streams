@@ -56,11 +56,15 @@
 (defn- protocol? [x]
   (and (map? x) (contains? x :on-interface)))
 
-(defn seq-of? [x]
-  (and (list? x) (= 'seq-of (first x))))
-
 (defn seq-of [x]
   (list 'seq-of x))
+
+(defn seq-of? [x]
+  (and (list? x)
+    (symbol? (first x))
+    (or
+      (= 'seq-of (first x))
+      (= #'seq-of (resolve (first x))))))
 
 (defn- abstract-type-descriptor [x]
   (if (seq-of? x)
@@ -106,7 +110,8 @@
         `(fn [~(with-meta (first params) {:tag src})
               ~(with-meta (second params) {:tag dst})
               ~(if-let [options (get params 2)] options (gensym "options"))]
-           ~@body)))))
+           ~@body)))
+    nil))
 
 ;;; convert
 
@@ -554,8 +559,11 @@
     (future
       (loop [s bufs]
         (when (and (not (empty? s)) (.isOpen sink))
-          (.write sink (first s))
-          (recur (rest s))))
+          (let [^ByteBuffer buf (first s)]
+            (.mark buf)
+            (.write sink buf)
+            (.reset buf) 
+            (recur (rest s)))))
       (.close sink))
     source))
 
