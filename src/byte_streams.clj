@@ -433,6 +433,7 @@
 
 ;;; conversion definitions
 
+;; a sequence of numbers representing bytes => a lazy sequence of byte-buffers
 (def-conversion [(seq-of Byteable) (seq-of ByteBuffer)]
   [s {:keys [chunk-size direct?] :or {chunk-size 4096, direct? false} :as options}]
   (when-not (empty? s)
@@ -558,6 +559,7 @@
       (.close sink))
     source))
 
+;; generic byte-source => lazy char-sequence
 (def-conversion [ByteSource CharSequence]
   [source options]
   (cs/decode-byte-source
@@ -590,6 +592,7 @@
   [char-sequence]
   (.toString char-sequence))
 
+;; sequence of strings => string
 (def-conversion [(seq-of String) String]
   [strings]
   (let [sb (StringBuilder.)]
