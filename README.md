@@ -101,12 +101,11 @@ byte-streams> (print-bytes (-> #'print-bytes meta :doc))
 `byte-streams/conversion-path` returns all the intermediate steps in transforming one type to another, if one exists:
 
 ```clj
+;; each element is a conversion tuple of to/from
 byte-streams> (conversion-path java.io.File String)
-(java.io.File 
- (seq-of java.nio.ByteBuffer) 
- java.nio.ByteBuffer 
- [B 
- java.lang.String)
+([java.io.File java.nio.channels.ReadableByteChannel] 
+ [#'byte-streams/ByteSource java.lang.CharSequence] 
+ [java.lang.CharSequence java.lang.String])
 
 ;; but if a conversion is impossible...
 byte-streams> (conversion-path java.io.OutputStream java.io.InputStream)

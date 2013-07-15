@@ -115,17 +115,17 @@
 (defn- searched? [k dst]
   (*searched* [k dst]))
 
+(defn- cost [a+b]
+  (-> (get-in @src->dst->conversion a+b
+        (when (every? seq-of? a+b)
+          (get-in @src->dst->conversion (map second a+b))))
+    meta
+    (get :cost 1)))
+
 (defn- shortest [s]
   (->> s
-    (sort-by
-      #(->> %
-         (map (fn [a+b]
-                (-> (get-in @src->dst->transfer a+b
-                      (when (every? seq-of? a+b)
-                        (get-in @src->dst->conversion (map second a+b))))
-                  meta
-                  (get :cost 1))))
-         (reduce +)))
+    ;; lexicographically first by cost, then by length
+    (sort-by #(vector (->> % (map cost) (reduce +)) (count %)))
     first))
 
 (defn- class-satisfies? [protocol ^Class c]
