@@ -26,7 +26,8 @@
                                (mapcat #(map list (repeat %) (possible-conversions %)))
                                distinct)]
     (doseq [[src dst] pairwise-conversions]
-      (is (= text (-> text (convert src) (convert dst) (convert String)))))))
+      (is (= text (-> text (convert src) (convert dst) (convert String)))
+        (str src " -> " dst)))))
 
 (defn temp-file []
   (doto (File/createTempFile "byte-streams" ".tmp")
@@ -39,7 +40,9 @@
       (is (= text (to-string file)))
       (is (= text (to-string (to-byte-buffers file {:chunk-size 128})))))))
 
-(deftest test-byte-buffer-convert
+;;;
+
+(deftest test-byte-buffer
   (let [arr (.getBytes ^String text)
         pos 13
         buf (doto (ByteBuffer/wrap arr) (.position pos))]
