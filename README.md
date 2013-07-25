@@ -1,4 +1,4 @@
-Java has a lot of different ways to represent a stream of bytes.  Depending on the author and age of a library, it might use `byte[]`, `InputStream`, `ByteBuffer`, or `Channel`.  If the bytes represent strings, there's also `String`, `Reader`, and `CharSequence` to worry about.  Remembering how to convert between all of them is a thankless task, made that much worse by libraries which define their own custom representations, or composing them with Clojure's lazy sequences.
+Java has a lot of different ways to represent a stream of bytes.  Depending on the author and age of a library, it might use `byte[]`, `InputStream`, `ByteBuffer`, or `ReadableByteChannel`.  If the bytes represent strings, there's also `String`, `Reader`, and `CharSequence` to worry about.  Remembering how to convert between all of them is a thankless task, made that much worse by libraries which define their own custom representations, or composing them with Clojure's lazy sequences.
 
 This library is a Rosetta stone for all the byte representations Java has to offer, and gives you the freedom to forget all the APIs you never wanted to know in the first place.  Complete documentation can be found [here](http://ideolalia.com/byte-streams/byte-streams.html).
 
@@ -23,10 +23,11 @@ byte-streams> (convert *1 String)
 
 ```clj
 byte-streams> (conversion-path String java.nio.ByteBuffer)
-(java.lang.String [B java.nio.ByteBuffer)
+([java.lang.String [B] 
+ [[B java.nio.ByteBuffer])
 ```
 
-While we can't turn a string into a `ByteBuffer`, we can turn a string into a `byte[]`, and `byte[]` into a `ByteBuffer`.  When invoked, `convert` will choose the minimal path along the graph of available conversions.  Common conversions are exposed via `to-byte-buffer`, `to-byte-array`, `to-input-stream`, `to-readable-channel`, `to-string`, and `to-line-seq`.  
+While we can't turn a string into a `ByteBuffer`, we can turn a string into a `byte[]`, and `byte[]` into a `ByteBuffer`.  When invoked, `convert` will choose the minimal path along the graph of available conversions.  Common conversions are exposed via `to-byte-buffer`, `to-byte-buffers`, `to-byte-array`, `to-input-stream`, `to-readable-channel`, `to-char-sequence`, `to-string`, and `to-line-seq`.  
 
 Every type can exist either by itself, or as a sequence.  For instance, we can create an `InputStream` representing an infinite number of repeated strings:
 
@@ -35,7 +36,7 @@ byte-stream> (to-input-stream (repeat "hello"))
 #<ChannelInputStream sun.nio.ch.ChannelInputStream@5440bbb4>
 ```
 
-And then we can turn that into a sequence of `ByteBuffers`:
+And then we can turn that into a lazy sequence of `ByteBuffers`:
 
 ```clj
 byte-streams> (take 2 
@@ -46,7 +47,11 @@ byte-streams> (take 2
  #<HeapByteBuffer java.nio.HeapByteBuffer[pos=0 lim=128 cap=128]>)
 ```
 
-Notice that we describe a sequence of a type as `(seq-of type)`, and that we've passed a map to `convert` describing the size of the `ByteBuffers` we want to create.  The two options that are currently supported are `:chunk-size`, which is relevant whenever we're converting a stream into a sequence of discrete chunks, and `:encoding`, which is relevant whenever we're encoding or decoding a string.
+Notice that we describe a sequence of a type as `(seq-of type)`, and that we've passed a map to `convert` describing the size of the `ByteBuffers` we want to create.  Available options include:
+
+* `:chunk-size` - the size in bytes of each chunk when converting a stream into a lazy seq of discrete chunks, defaults to `4096`
+* `:direct?` - whether any `ByteBuffers` which are created should be [direct](http://stackoverflow.com/a/5671880/228387), default to `false`
+* `:encoding` - the character set for any strings we're encoding or decoding, defaults to `:utf-8`
 
 ### custom conversions
 

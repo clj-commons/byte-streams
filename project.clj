@@ -1,4 +1,4 @@
-(defproject byte-streams "0.1.3"
+(defproject byte-streams "0.1.4"
   :description "A simple way to handle the menagerie of Java byte represenations."
   :license {:name "MIT License"
             :url "http://opensource.org/licenses/MIT"}
@@ -8,4 +8,5 @@
   :plugins [[codox "0.6.4"]]
   :codox {:writer codox-md.writer/write-docs
           :include [byte-streams]}
-  :warn-on-reflection true)
+  :warn-on-reflection true
+  :jvm-opts ^:replace ["-server"])

@@ -33,9 +33,6 @@
 
 ;;; protocols
 
-(defprotocol Byteable
-  (to-byte [_] "Converts the object to a single byte."))
-
 (defprotocol Closeable
   (close [_] "A protocol that is a superset of `java.io.Closeable`."))
 
@@ -50,8 +47,8 @@
 (defonce ^:private src->dst->conversion (atom nil))
 (defonce ^:private src->dst->transfer (atom nil))
 
-(def ^:private object-array (class (clojure.core/object-array 0)))
-(def ^:private byte-array (class (clojure.core/byte-array 0)))
+(def ^:private ^:const object-array (class (clojure.core/object-array 0)))
+(def ^:private ^:const byte-array (class (clojure.core/byte-array 0)))
 
 (defn- protocol? [x]
   (and (map? x) (contains? x :on-interface)))
@@ -120,17 +117,19 @@
 (defn- searched? [k dst]
   (*searched* [k dst]))
 
-(defn- cost [a+b]
-  (-> (get-in @src->dst->conversion a+b
-        (when (every? seq-of? a+b)
-          (get-in @src->dst->conversion (map second a+b))))
-    meta
-    (get :cost 1)))
+(defn- cost [a b]
+  (if (= a b)
+    0
+    (-> (get-in @src->dst->conversion [a b]
+          (when (and (seq-of? a) (seq-of? b))
+            (get-in @src->dst->conversion [(second a) (second b)])))
+      meta
+      (get :cost 1))))
 
 (defn- shortest [s]
   (->> s
     ;; lexicographically first by cost, then by length
-    (sort-by #(vector (->> % (map cost) (reduce +)) (count %)))
+    (sort-by #(vector (->> % (map (partial apply cost)) (reduce +)) (count %)))
     first))
 
 (defn- class-satisfies? [protocol ^Class c]
@@ -356,6 +355,16 @@
             #(conversion-path % dst)
             sources))))))
 
+(let [memoized-cost (memoize
+                      (fn [src dst]
+                        (apply min
+                          (for [src (valid-sources src), dst (valid-destinations dst)]
+                            (cost src dst)))))]
+  (defn conversion-cost
+    "Returns the estimated cost of converting the data `x` to the destination type `dst`."
+    ^long [x dst]
+    (memoized-cost (type-descriptor x) dst)))
+
 ;;; transfer
 
 (defn- default-transfer [source sink {:keys [chunk-size] :or {chunk-size 1024} :as options}]
@@ -438,21 +447,6 @@
 
 ;;; conversion definitions
 
-;; a sequence of numbers representing bytes => a lazy sequence of byte-buffers
-(def-conversion [(seq-of Byteable) (seq-of ByteBuffer)]
-  [s {:keys [chunk-size direct?] :or {chunk-size 4096, direct? false} :as options}]
-  (when-not (empty? s)
-    (let [s' (take chunk-size s)
-          cnt (count s')
-          buf (if direct?
-                (ByteBuffer/allocateDirect cnt)
-                (ByteBuffer/allocate cnt))]
-      (doseq [[i x] (map list (range) s')]
-        (.put buf i (to-byte x)))
-      (cons
-        buf
-        (convert (drop cnt s) (seq-of ByteBuffer) options)))))
-
 ;; byte-array => byte-buffer
 (def-conversion ^{:cost 0} [byte-array ByteBuffer]
   [ary]
@@ -491,9 +485,14 @@
 ;; sequence of byte-buffers => byte-buffer
 (def-conversion [(seq-of ByteBuffer) ByteBuffer]
   [bufs {:keys [direct?] :or {direct? false}}]
-  (if (and (empty? (rest bufs))
-        (not (satisfies? Closeable bufs)))
+  (cond
+    (empty? bufs)
+    (ByteBuffer/allocate 0)
+
+    (and (empty? (rest bufs)) (not (satisfies? Closeable bufs)))
     (first bufs)
+
+    :else
     (let [len (reduce + (map #(.remaining ^ByteBuffer %) bufs))
           buf (if direct?
                 (ByteBuffer/allocateDirect len)
@@ -568,7 +567,7 @@
     source))
 
 ;; generic byte-source => lazy char-sequence
-(def-conversion [ByteSource CharSequence]
+(def-conversion ^{:cost 1.5} [ByteSource CharSequence]
   [source options]
   (cs/decode-byte-source
     #(let [bytes (take-bytes! source % options)]
@@ -687,20 +686,6 @@
 
 ;;; protocol extensions
 
-(extend-protocol Byteable
-
-  Byte
-  (to-byte [this] this)
-
-  Short
-  (to-byte [this] (byte this))
-
-  Integer
-  (to-byte [this] (byte this))
-
-  Long
-  (to-byte [this] (byte this)))
-
 (extend-protocol ByteSink
 
   OutputStream
@@ -800,7 +785,7 @@
   ([x options]
      (convert x ByteBuffer options)))
 
-(defn ^ByteBuffer to-byte-buffers
+(defn to-byte-buffers
   "Converts the object to a sequence of `java.nio.ByteBuffer`."
   ([x]
      (to-byte-buffers x nil))
@@ -813,6 +798,13 @@
      (to-byte-array x nil))
   ([x options]
      (convert x byte-array options)))
+
+(defn to-byte-arrays
+  "Converts the object to a byte-array."
+  ([x]
+     (to-byte-array x nil))
+  ([x options]
+     (convert x (seq-of byte-array) options)))
 
 (defn ^InputStream to-input-stream
   "Converts the object to a `java.io.InputStream`."
