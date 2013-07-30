@@ -783,7 +783,10 @@
   ([x]
      (to-byte-buffer x nil))
   ([x options]
-     (convert x ByteBuffer options)))
+     (cond
+       (instance? ByteBuffer x) x
+       (instance? byte-array x) (ByteBuffer/wrap x)
+       :else (convert x ByteBuffer options))))
 
 (defn to-byte-buffers
   "Converts the object to a sequence of `java.nio.ByteBuffer`."
@@ -797,7 +800,9 @@
   ([x]
      (to-byte-array x nil))
   ([x options]
-     (convert x byte-array options)))
+     (if (instance? byte-array x)
+       x
+       (convert x byte-array options))))
 
 (defn to-byte-arrays
   "Converts the object to a byte-array."
@@ -818,7 +823,9 @@
   ([x]
      (to-char-sequence x nil))
   ([x options]
-     (convert x CharSequence options)))
+     (if (instance? CharSequence x)
+       x
+       (convert x CharSequence options))))
 
 (defn ^ReadableByteChannel to-readable-channel
   "Converts the object to a `java.nio.ReadableByteChannel`"
@@ -832,7 +839,9 @@
   ([x]
      (to-string x nil))
   ([x options]
-     (convert x String options)))
+     (if (string? x)
+       x
+       (convert x String options))))
 
 (defn to-line-seq
   "Converts the object to a lazy sequence of newline-delimited strings."
