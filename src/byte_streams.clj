@@ -44,8 +44,8 @@
 
 ;;;
 
-(defonce ^:private src->dst->conversion (atom nil))
-(defonce ^:private src->dst->transfer (atom nil))
+(def ^:private src->dst->conversion (atom nil))
+(def ^:private src->dst->transfer (atom nil))
 
 (def ^:private ^:const object-array (class (clojure.core/object-array 0)))
 (def ^:private ^:const byte-array (class (clojure.core/byte-array 0)))
@@ -204,8 +204,7 @@
   [src dst]
   (->> (for [src (valid-sources src), dst (valid-destinations dst)]
          [src dst])
-    (map #(binding [shortest-conversion-path (memoize shortest-conversion-path)]
-            (apply shortest-conversion-path %)))
+    (map #(apply shortest-conversion-path %))
     (remove nil?)
     shortest))
 
@@ -359,7 +358,9 @@
                       (fn [src dst]
                         (apply min
                           (for [src (valid-sources src), dst (valid-destinations dst)]
-                            (cost src dst)))))]
+                            (->> (conversion-path src dst)
+                              (map #(apply cost %))
+                              (reduce +))))))]
   (defn conversion-cost
     "Returns the estimated cost of converting the data `x` to the destination type `dst`."
     ^long [x dst]
@@ -448,7 +449,7 @@
 ;;; conversion definitions
 
 ;; byte-array => byte-buffer
-(def-conversion ^{:cost 0} [byte-array ByteBuffer]
+(def-conversion ^{:cost 0} [byte-array HeapByteBuffer]
   [ary]
   (ByteBuffer/wrap ary))
 
@@ -582,7 +583,7 @@
   (BufferedReader. (InputStreamReader. input-stream ^String encoding)))
 
 ;; reader => char-sequence
-(def-conversion [Reader CharSequence]
+(def-conversion ^{:cost 1.5} [Reader CharSequence]
   [reader {:keys [chunk-size] :or {chunk-size 2048}}]
   (let [ary (char-array chunk-size)
         sb (StringBuilder.)]
