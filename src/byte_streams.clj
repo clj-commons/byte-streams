@@ -44,8 +44,8 @@
 
 ;;;
 
-(def ^:private src->dst->conversion (atom nil))
-(def ^:private src->dst->transfer (atom nil))
+(defonce ^:private src->dst->conversion (atom nil))
+(defonce ^:private src->dst->transfer (atom nil))
 
 (def ^:private ^:const object-array (class (clojure.core/object-array 0)))
 (def ^:private ^:const byte-array (class (clojure.core/byte-array 0)))
@@ -545,7 +545,7 @@
   (.getBytes s (name encoding)))
 
 ;; byte-array => string
-(def-conversion [byte-array String]
+(def-conversion ^{:cost 1.5} [byte-array String]
   [ary {:keys [encoding] :or {encoding "utf-8"}}]
   (String. ^bytes ary (name encoding)))
 
