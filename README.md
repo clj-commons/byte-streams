@@ -103,6 +103,15 @@ byte-streams> (print-bytes (-> #'print-bytes meta :doc))
 79 74 65 73 20 70 65 72  20 6C 69 6E 65 2E            ytes per line.
 ```
 
+`(byte-streams/compare-bytes a b)` will return a value which is positive if `a` is lexicographically first, zero if they're equal, and negative otherwise:
+
+```clj
+byte-streams> (compare-bytes "abc" "abd")
+-1
+```
+
+`bytes-streams/bytes=` will return true if two byte streams are equal, and false otherwise.
+
 `byte-streams/conversion-path` returns all the intermediate steps in transforming one type to another, if one exists:
 
 ```clj

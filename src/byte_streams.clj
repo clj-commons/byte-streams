@@ -3,7 +3,8 @@
     [object-array byte-array])
   (:require
     [byte-streams.char-sequence :as cs]
-    [clojure.java.io :as io])
+    [clojure.java.io :as io]
+    [primitive-math :as p])
   (:import
     [java.nio
      ByteBuffer
@@ -879,3 +880,63 @@
      (to-byte-sink x nil))
   ([x options]
      (convert x ByteSink options)))
+
+;;;
+
+(defn- cmp-bufs
+  ^long [^ByteBuffer a ^ByteBuffer b]
+  (if (p/== (.remaining a) (.remaining b))
+    (let [limit (p/>> (.remaining a) 2)]
+      (let [cmp (loop [idx 0]
+                  (if (p/>= idx limit)
+                    0
+                    (let [cmp (p/-
+                                (p/int->uint (.getInt a idx))
+                                (p/int->uint (.getInt b idx)))]
+                      (if (p/== 0 cmp)
+                        (recur (p/+ idx 4))
+                        cmp))))]
+        (if (p/== 0 (long cmp))
+          (let [limit' (.remaining a)]
+            (loop [idx limit]
+              (if (p/>= idx limit')
+                0
+                (let [cmp (p/-
+                            (p/byte->ubyte (.get a idx))
+                            (p/byte->ubyte (.get b idx)))]
+                  (if (p/== 0 cmp)
+                    (recur (p/inc idx))
+                    cmp)))))
+          cmp)))
+    (p/- (.remaining a) (.remaining b))))
+
+(defn compare-bytes
+  "Returns a comparison result for two byte streams."
+  ^long [a b]
+  (if (and
+        (or
+          (instance? byte-array a)
+          (instance? ByteBuffer a)
+          (instance? String a))
+        (or
+          (instance? byte-array b)
+          (instance? ByteBuffer b)
+          (instance? String b)))
+    (cmp-bufs (to-byte-buffer a) (to-byte-buffer b))
+    (loop [a (to-byte-buffers a), b (to-byte-buffers b)]
+      (condp empty?
+        a
+        (if (empty? b) 0 -1)
+
+        b
+        1
+
+        (let [cmp (cmp-bufs (first a) (first b))]
+          (if (p/== 0 cmp)
+            (recur (rest a) (rest b))
+            cmp))))))
+
+(defn bytes=
+  "Returns true if the two byte streams are equivalent."
+  [a b]
+  (p/== 0 (compare-bytes a b)))
