@@ -242,9 +242,19 @@
       ;; expand out the cartesian product of all possible starting and ending positions,
       ;; and choose the shortest
       (when-let [path (conversion-path src dst)]
-        (let [fns (if (empty? path)
-                    [(fn [x _] x)]
-                    (map
+        (condp = (count path)
+          0 (fn [x _] x)
+
+          1 (let [f (get-in @src->dst->conversion (first path))]
+              (if (satisfies? Closeable src)
+                (fn [x options]
+                  (let [x' (f x options)]
+                    (close x)
+                    x'))
+                f))
+
+          ;; multiple stages
+          (let [fns (map
                       (fn [[a b :as a+b]]
                         (if-let [f (get-in @src->dst->conversion a+b)]
                           f
@@ -259,30 +269,30 @@
                             (throw
                               (IllegalStateException.
                                 (str "We thought we could convert between " a " and " b ", but we can't."))))))
-                      path))]
-         (fn [x options]
-           (let [close-fns (atom [])
-                 result (reduce
-                          (fn [x f]
+                      path)]
+           (fn [x options]
+             (let [close-fns (atom [])
+                   result (reduce
+                            (fn [x f]
 
-                            ;; keep track of everything that needs to be closed once the bytes are exhausted
-                            (when (satisfies? Closeable x)
-                              (swap! close-fns conj #(close x)))
-                            (f x options))
-                          x
-                          fns)]
-             (if-let [close-fn (when-let [fns (seq @close-fns)]
-                                 #(doseq [f fns] (f)))] 
-               (if (sequential? result)
-                 (closeable-seq result true close-fn)
-                 (do
-                   ;; we assume that if the end-result is closeable, it will take care of all the intermediate
-                   ;; objects beneath it.  I think this is true as long as we're not doing multiple streaming
-                   ;; reads, but this might need to be revisited.
-                   (when-not (satisfies? Closeable result)
-                     (close-fn))
-                   result))
-               result))))))))
+                              ;; keep track of everything that needs to be closed once the bytes are exhausted
+                              (when (satisfies? Closeable x)
+                                (swap! close-fns conj #(close x)))
+                              (f x options))
+                            x
+                            fns)]
+               (if-let [close-fn (when-let [fns (seq @close-fns)]
+                                   #(doseq [f fns] (f)))] 
+                 (if (sequential? result)
+                   (closeable-seq result true close-fn)
+                   (do
+                     ;; we assume that if the end-result is closeable, it will take care of all the intermediate
+                     ;; objects beneath it.  I think this is true as long as we're not doing multiple streaming
+                     ;; reads, but this might need to be revisited.
+                     (when-not (satisfies? Closeable result)
+                       (close-fn))
+                     result))
+                 result)))))))))
 
 (defn type-descriptor
   "Returns a descriptor that can be used with `conversion-path`."
@@ -471,7 +481,7 @@
 (def-conversion [ByteBuffer byte-array]
   [buf]
   (if (.hasArray buf)
-    (if (= (alength (.array buf)) (.remaining buf))
+    (if (== (alength (.array buf)) (.remaining buf))
       (.array buf)
       (let [ary (clojure.core/byte-array (.remaining buf))]
         (doto buf
@@ -542,7 +552,7 @@
 ;; string => byte-array
 (def-conversion [String byte-array]
   [s {:keys [encoding] :or {encoding "utf-8"}}]
-  (.getBytes s (name encoding)))
+  (.getBytes s ^String (name encoding)))
 
 ;; byte-array => string
 (def-conversion ^{:cost 1.5} [byte-array String]
@@ -784,10 +794,11 @@
   ([x]
      (to-byte-buffer x nil))
   ([x options]
-     (cond
-       (instance? ByteBuffer x) x
-       (instance? byte-array x) (ByteBuffer/wrap x)
-       :else (convert x ByteBuffer options))))
+     (condp instance? x
+       ByteBuffer x
+       byte-array (ByteBuffer/wrap x)
+       String (ByteBuffer/wrap (.getBytes ^String x (name (get options :encoding "utf-8"))))
+       (convert x ByteBuffer options))))
 
 (defn to-byte-buffers
   "Converts the object to a sequence of `java.nio.ByteBuffer`."
@@ -796,14 +807,17 @@
   ([x options]
      (convert x (seq-of ByteBuffer) options)))
 
-(defn ^"[B" to-byte-array
-  "Converts the object to a byte-array."
-  ([x]
-     (to-byte-array x nil))
-  ([x options]
-     (if (instance? byte-array x)
-       x
-       (convert x byte-array options))))
+(let [buf->ary (converter ByteBuffer byte-array)]
+  (defn ^"[B" to-byte-array
+    "Converts the object to a byte-array."
+    ([x]
+       (to-byte-array x nil))
+    ([x options]
+       (condp instance? x
+         byte-array x
+         String (.getBytes ^String x (name (get options :encoding "utf-8")))
+         ByteBuffer (buf->ary x options)
+         (convert x byte-array options)))))
 
 (defn to-byte-arrays
   "Converts the object to a byte-array."

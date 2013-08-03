@@ -8,5 +8,5 @@
   :plugins [[codox "0.6.4"]]
   :codox {:writer codox-md.writer/write-docs
           :include [byte-streams]}
-  :warn-on-reflection true
+  :global-vars {*warn-on-reflection* true}
   :jvm-opts ^:replace ["-server"])
