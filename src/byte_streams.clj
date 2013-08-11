@@ -58,7 +58,7 @@
   (list 'seq-of x))
 
 (defn seq-of? [x]
-  (and (list? x)
+  (and (seq? x)
     (symbol? (first x))
     (or
       (= 'seq-of (first x))
