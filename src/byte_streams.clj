@@ -702,7 +702,7 @@
 
   OutputStream
   (send-bytes! [this b _]
-    (.write ^OutputStream this ^bytes (convert b bytes)))
+    (.write ^OutputStream this ^bytes (convert b byte-array)))
 
   WritableByteChannel
   (send-bytes! [this b _]
