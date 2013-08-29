@@ -855,9 +855,10 @@
   ([x]
      (to-string x nil))
   ([x options]
-     (if (string? x)
-       x
-       (convert x String options))))
+     (condp instance? x
+       String x
+       byte-array (String. x (get options :charset "utf-8"))
+       :else (convert x String options))))
 
 (defn to-line-seq
   "Converts the object to a lazy sequence of newline-delimited strings."
