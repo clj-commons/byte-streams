@@ -3,14 +3,18 @@
     [object-array byte-array])
   (:require
     [byte-streams.char-sequence :as cs]
+    [byte-streams.utils :refer (fast-memoize)]
     [clojure.java.io :as io]
-    [primitive-math :as p])
+    [primitive-math :as p]
+    [clj-tuple :refer (tuple)])
   (:import
     [java.nio
      ByteBuffer
      DirectByteBuffer]
     [java.lang.reflect
      Array]
+    [java.util.concurrent
+     ConcurrentHashMap]
     [java.io
      File
      FileOutputStream
@@ -238,7 +242,7 @@
         this))))
 
 (def ^:private converter
-  (memoize
+  (fast-memoize
     (fn [src dst]
       ;; expand out the cartesian product of all possible starting and ending positions,
       ;; and choose the shortest
@@ -255,27 +259,28 @@
                 f))
 
           ;; multiple stages
-          (let [fns (map
-                      (fn [[a b :as a+b]]
-                        (if-let [f (get-in @src->dst->conversion a+b)]
-                          f
-                          
-                          ;; implicit (seq-of a) -> (seq-of b) conversion
-                          (if-let [f (when (every? seq-of? a+b)
-                                       (get-in @src->dst->conversion (map second a+b)))]
-                            (fn [x options]
-                              (map #(f % options) x))
+          (let [fns (->> path
+                      (map
+                        (fn [[a b :as a+b]]
+                          (if-let [f (get-in @src->dst->conversion a+b)]
+                            f
                             
-                            ;; this shouldn't ever happen, but let's have a decent error message all the same
-                            (throw
-                              (IllegalStateException.
-                                (str "We thought we could convert between " a " and " b ", but we can't."))))))
-                      path)]
+                            ;; implicit (seq-of a) -> (seq-of b) conversion
+                            (if-let [f (when (every? seq-of? a+b)
+                                         (get-in @src->dst->conversion (map second a+b)))]
+                              (fn [x options]
+                                (map #(f % options) x))
+                              
+                              ;; this shouldn't ever happen, but let's have a decent error message all the same
+                              (throw
+                                (IllegalStateException.
+                                  (str "We thought we could convert between " a " and " b ", but we can't.")))))))
+                      (apply tuple))]
            (fn [x options]
-             (let [close-fns (atom [])
+             (let [close-fns (atom (tuple))
                    result (reduce
                             (fn [x f]
-
+                              
                               ;; keep track of everything that needs to be closed once the bytes are exhausted
                               (when (satisfies? Closeable x)
                                 (swap! close-fns conj #(close x)))
@@ -283,7 +288,8 @@
                             x
                             fns)]
                (if-let [close-fn (when-let [fns (seq @close-fns)]
-                                   #(doseq [f fns] (f)))] 
+                                   #(doseq [f fns]
+                                      (f)))] 
                  (if (sequential? result)
                    (closeable-seq result true close-fn)
                    (do
@@ -365,7 +371,7 @@
             #(conversion-path % dst)
             sources))))))
 
-(let [memoized-cost (memoize
+(let [memoized-cost (fast-memoize
                       (fn [src dst]
                         (apply min
                           (for [src (valid-sources src), dst (valid-destinations dst)]
@@ -386,7 +392,7 @@
       (recur))))
 
 (def ^:private transfer-fn
-  (memoize
+  (fast-memoize
     (fn this [src dst]
       (let [[src' dst'] (->> @src->dst->transfer
                           keys
