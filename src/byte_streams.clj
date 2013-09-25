@@ -777,7 +777,7 @@
   [bytes]
   (let [bufs (convert bytes (seq-of ByteBuffer) {:chunk-size 16})]
     (doseq [^ByteBuffer buf bufs]
-      (let [s (convert buf String {:encoding "ascii"})
+      (let [s (convert (.duplicate buf) String {:encoding "ascii"})
             bytes (repeatedly (min 16 (.remaining buf)) #(.get buf))
             padding (* 3 (- 16 (count bytes)))
             hex-format #(->> "%02X" (repeat %) (interpose " ") (apply str))]
