@@ -79,3 +79,12 @@
             (to-byte-array (convert buf (seq-of ByteBuffer) {:chunk-size chunk-size}))
             arr)))
     (is (empty? (convert buf (seq-of ByteBuffer) {:chunk-size 0})))))
+
+(deftest test-large-chunked-stream
+  (let [text-seq (repeat 1e4 text)]
+    (is (bytes=
+          (to-byte-array text-seq)
+          (-> text-seq
+            to-input-stream
+            (convert (seq-of ByteBuffer) {:chunk-size 1})
+            to-byte-array)))))
