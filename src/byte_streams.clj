@@ -891,31 +891,33 @@
 ;;;
 
 (defn- cmp-bufs
-  ^long [^ByteBuffer a ^ByteBuffer b]
-  (if (p/== (.remaining a) (.remaining b))
-    (let [limit (p/>> (.remaining a) 2)]
-      (let [cmp (loop [idx 0]
-                  (if (p/>= idx limit)
-                    0
-                    (let [cmp (p/-
-                                (p/int->uint (.getInt a idx))
-                                (p/int->uint (.getInt b idx)))]
-                      (if (p/== 0 cmp)
-                        (recur (p/+ idx 4))
-                        cmp))))]
-        (if (p/== 0 (long cmp))
-          (let [limit' (.remaining a)]
-            (loop [idx limit]
-              (if (p/>= idx limit')
-                0
-                (let [cmp (p/-
-                            (p/byte->ubyte (.get a idx))
-                            (p/byte->ubyte (.get b idx)))]
-                  (if (p/== 0 cmp)
-                    (recur (p/inc idx))
-                    cmp)))))
-          cmp)))
-    (p/- (.remaining a) (.remaining b))))
+  ^long [^ByteBuffer a' ^ByteBuffer b']
+  (let [diff (p/- (.remaining a') (.remaining b'))
+        sign (long (if (pos? diff) -1 1))
+        a (if (pos? diff) b' a')
+        b (if (pos? diff) a' b')
+        limit (p/>> (.remaining a) 2)]
+    (let [cmp (loop [idx 0]
+                (if (p/>= idx limit)
+                  0
+                  (let [cmp (p/-
+                              (p/int->uint (.getInt a idx))
+                              (p/int->uint (.getInt b idx)))]
+                    (if (p/== 0 cmp)
+                      (recur (p/+ idx 4))
+                      (p/* sign cmp)))))]
+      (if (p/== 0 (long cmp))
+        (let [limit' (.remaining a)]
+          (loop [idx limit]
+            (if (p/>= idx limit')
+              diff
+              (let [cmp (p/-
+                          (p/byte->ubyte (.get a idx))
+                          (p/byte->ubyte (.get b idx)))]
+                (if (p/== 0 cmp)
+                  (recur (p/inc idx))
+                  (p/* sign cmp))))))
+        cmp))))
 
 (defn compare-bytes
   "Returns a comparison result for two byte streams."

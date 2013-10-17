@@ -5,7 +5,7 @@
   :dependencies [[primitive-math "0.1.3"]
                  [clj-tuple "0.1.2"]]
   :profiles {:dev {:dependencies [[org.clojure/clojure "1.5.1"]
-                                  [reiddraper/simple-check "0.2.1"]
+                                  [reiddraper/simple-check "0.5.0-SNAPSHOT"]
                                   [codox-md "0.2.0" :exclusions [org.clojure/clojure]]]}}
   :plugins [[codox "0.6.4"]]
   :codox {:writer codox-md.writer/write-docs
