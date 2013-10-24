@@ -82,38 +82,33 @@
 (defmacro def-conversion
   "Defines a conversion from one type to another."
   [[src dst :as conversion] params & body]
-  (let [mt (meta conversion)
-        src' (abstract-type-descriptor src)
+  (let [src' (abstract-type-descriptor src)
         dst' (abstract-type-descriptor dst)]
-    (swap! src->dst->conversion assoc-in [src' dst']
-      (with-meta
-        (eval
-          `(fn [~(with-meta (first params)
-                   {:tag (when-not (var? src')
-                           (if (= byte-array src')
-                             'bytes
-                             src))})
-                ~(if-let [options (second params)]
-                   options
-                   `_#)]
-             ~@body))
-        (merge
-          mt
-          {::conversion [src' dst']}))))
-  nil)
+    `(swap! src->dst->conversion assoc-in [~src' ~dst']
+       (with-meta
+         (fn [~(with-meta (first params)
+                 {:tag (when-not (var? src')
+                         (if (= byte-array src')
+                           'bytes
+                           src))})
+              ~(if-let [options (second params)]
+                 options
+                 `_#)]
+           ~@body)
+         (merge
+           ~(meta conversion)
+           {::conversion [~src' ~dst']})))))
 
 (defmacro def-transfer
   "Defines a byte transfer from one type to another."
   [[src dst] params & body]
   (let [src' (abstract-type-descriptor src)
         dst' (abstract-type-descriptor dst)]
-    (swap! src->dst->transfer assoc-in [src' dst']
-      (eval
-        `(fn [~(with-meta (first params) {:tag src})
-              ~(with-meta (second params) {:tag dst})
-              ~(if-let [options (get params 2)] options (gensym "options"))]
-           ~@body)))
-    nil))
+    `(swap! src->dst->transfer assoc-in [~src' ~dst']
+       (fn [~(with-meta (first params) {:tag src'})
+            ~(with-meta (second params) {:tag dst'})
+            ~(if-let [options (get params 2)] options (gensym "options"))]
+         ~@body))))
 
 ;;; convert
 
