@@ -158,17 +158,20 @@
 
 (defn- valid-sources [x]
   (let [x (if (var? x) @x x)]
-    (->> @src->dst->conversion
-      keys
-      (mapcat #(if (seq-of? %) [%] [% (seq-of %)]))
-      (filter (partial assignable? x)))))
+    (or
+      (->> @src->dst->conversion
+        keys
+        (mapcat #(if (seq-of? %) [%] [% (seq-of %)]))
+        (filter (partial assignable? x))
+        seq)
+      [x])))
 
 (defn- valid-destinations [x]
   (let [x (if (var? x) @x x)]
     (cond
       (seq-of? x)    (->> x second valid-destinations (map seq-of))
       (class? x)     [x]
-      (protocol? x)  (keys (get x :impls))
+      (protocol? x)  (conj (keys (get x :impls)) (:on-interface x))
       :else          [x])))
 
 (defn- ^:dynamic shortest-conversion-path
@@ -453,6 +456,10 @@
            (throw (IllegalArgumentException. (str "Don't know how to transfer between a sequence of " (second src) " to " dst)))
            (throw (IllegalArgumentException. (str "Don't know how to transfer between " src " to " dst))))))))
 
+(def ^{:doc "Web-scale."} dev-null
+  (reify ByteSink
+    (send-bytes! [_ _ _])))
+
 (defn optimized-transfer?
   "Returns true if an optimized transfer function exists for the given source and sink objects."
   [type-descriptor sink-type]
@@ -691,10 +698,10 @@
   [input-stream output-stream {:keys [chunk-size] :or {chunk-size 4096} :as options}]
   (let [ary (clojure.core/byte-array chunk-size)]
     (loop []
-      (let [n (.read input-stream ary)]
+      (let [n (.read ^InputStream input-stream ary)]
         (when (pos? n)
-          (.write output-stream ary 0 n)
-          (.flush output-stream)
+          (.write ^OutputStream output-stream ary 0 n)
+          (.flush ^OutputStream output-stream)
           (recur)))))) 
 
 ;;; protocol extensions
