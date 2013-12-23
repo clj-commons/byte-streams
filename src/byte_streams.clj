@@ -935,13 +935,14 @@
           (instance? String b)))
     (cmp-bufs (to-byte-buffer a) (to-byte-buffer b))
     (loop [a (to-byte-buffers a), b (to-byte-buffers b)]
-      (condp empty?
-        a
+      (cond
+        (empty? a)
         (if (empty? b) 0 -1)
 
-        b
+        (empty? b)
         1
 
+        :else
         (let [cmp (cmp-bufs (first a) (first b))]
           (if (p/== 0 cmp)
             (recur (rest a) (rest b))
