@@ -225,6 +225,7 @@
       clojure.lang.Sequential
       clojure.lang.ISeq
       clojure.lang.Seqable
+      (seq [this] this)
       (cons [_ a]
         (closeable-seq (cons a s) exhaustible? close-fn))
       (next [this]
@@ -236,8 +237,18 @@
             rst)))
       (first [_]
         (first s))
-      (seq [this]
-        this))))
+      (equiv [a b]
+        (= s b)))))
+
+(let [m (ConcurrentHashMap.)]
+  (defn- closeable? [x]
+    (let [c (class x)
+          v (.get m c)]
+      (if (nil? v)
+        (let [v (satisfies? Closeable x)]
+          (.put m c v)
+          v)
+        v))))
 
 (def ^:private converter
   (fast-memoize
@@ -249,7 +260,7 @@
           0 (fn [x _] x)
 
           1 (let [f (get-in @src->dst->conversion (first path))]
-              (if (satisfies? Closeable src)
+              (if (closeable? src)
                 (fn [x options]
                   (let [x' (f x options)]
                     (close x)
@@ -280,7 +291,7 @@
                             (fn [x f]
                               
                               ;; keep track of everything that needs to be closed once the bytes are exhausted
-                              (when (satisfies? Closeable x)
+                              (when (closeable? x)
                                 (swap! close-fns conj #(close x)))
                               (f x options))
                             x
@@ -294,7 +305,7 @@
                      ;; we assume that if the end-result is closeable, it will take care of all the intermediate
                      ;; objects beneath it.  I think this is true as long as we're not doing multiple streaming
                      ;; reads, but this might need to be revisited.
-                     (when-not (satisfies? Closeable result)
+                     (when-not (closeable? result)
                        (close-fn))
                      result))
                  result)))))))))
@@ -413,7 +424,7 @@
                     sink' (convert sink dst')]
                 (f source' sink' options)
                 (doseq [x [source sink source' sink']]
-                  (when (satisfies? Closeable x)
+                  (when (closeable? x)
                     (close x))))))
           
           (and
@@ -424,7 +435,7 @@
                   sink' (convert sink ByteSink)]
               (default-transfer source' sink' options)
               (doseq [x [source sink source' sink']]
-                (when (satisfies? Closeable x)
+                (when (closeable? x)
                   (close x)))))
           
           :else
@@ -509,7 +520,7 @@
     (empty? bufs)
     (ByteBuffer/allocate 0)
 
-    (and (empty? (rest bufs)) (not (satisfies? Closeable bufs)))
+    (and (empty? (rest bufs)) (not (closeable? bufs)))
     (first bufs)
 
     :else
@@ -521,7 +532,7 @@
         (.mark b)
         (.put buf b)
         (.reset b))
-      (when (satisfies? Closeable bufs)
+      (when (closeable? bufs)
         (close bufs))
       (.flip buf))))
 
@@ -592,7 +603,7 @@
   (cs/decode-byte-source
     #(let [bytes (take-bytes! source % options)]
        (convert bytes ByteBuffer options))
-    #(when (satisfies? Closeable source)
+    #(when (closeable? source)
        (close source))
     options))
 
@@ -867,6 +878,13 @@
        String x
        byte-array (String. ^"[B" x ^String (get options :charset "utf-8"))
        (convert x String options))))
+
+(defn to-reader
+  "Converts the object to a java.io.Reader."
+  ([x]
+     (to-reader x nil))
+  ([x options]
+     (convert x Reader options)))
 
 (defn to-line-seq
   "Converts the object to a lazy sequence of newline-delimited strings."

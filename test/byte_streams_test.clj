@@ -18,8 +18,9 @@
 
 (defn find-missing-roundtrips []
   (remove nil?
-    (for [src (keys @@#'byte-streams/src->dst->conversion)
-          dst (possible-conversions src)]
+    (for [[src dst] (->> (keys @@#'byte-streams/src->dst->conversion)
+                      (mapcat #(map list (repeat %) (possible-conversions %)))
+                      distinct)]
       (when-not (and (conversion-path src dst) (conversion-path dst src))
         [src dst]))))
 
