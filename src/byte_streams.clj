@@ -479,18 +479,15 @@
 ;;; conversion definitions
 
 ;; byte-array => byte-buffer
-(def-conversion ^{:cost 0} [byte-array HeapByteBuffer]
-  [ary]
-  (ByteBuffer/wrap ary))
-
-;; byte-array => direct-byte-buffer
-(def-conversion [byte-array DirectByteBuffer]
-  [ary]
-  (let [len (Array/getLength ary)
-        ^ByteBuffer buf (ByteBuffer/allocateDirect len)]
-    (.put buf ary 0 len)
-    (.position buf 0)
-    buf))
+(def-conversion ^{:cost 0} [byte-array ByteBuffer]
+  [ary {:keys [direct?] :or {direct? false}}]
+  (if direct?
+    (let [len (Array/getLength ary)
+          ^ByteBuffer buf (ByteBuffer/allocateDirect len)]
+      (.put buf ary 0 len)
+      (.position buf 0)
+      buf)
+    (ByteBuffer/wrap ary)))
 
 ;; byte-array => input-stream
 (def-conversion ^{:cost 0} [byte-array InputStream]
