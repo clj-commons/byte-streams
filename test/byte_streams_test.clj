@@ -82,7 +82,7 @@
             arr)))
     (is (empty? (convert buf (seq-of ByteBuffer) {:chunk-size 0})))))
 
-(deftest test-large-chunked-stream
+(deftest ^:stress test-large-chunked-stream
   (let [text-seq (repeat 1e4 text)]
     (is (bytes=
           (to-byte-array text-seq)
