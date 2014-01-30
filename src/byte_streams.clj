@@ -70,7 +70,7 @@
 
 (defn- abstract-type-descriptor [x]
   (if (seq-of? x)
-    (seq-of (abstract-type-descriptor (second x)))
+    (list 'list '(quote seq-of) (abstract-type-descriptor (second x)))
     (let [x (resolve x)
           x (if (var? x)
               @x
