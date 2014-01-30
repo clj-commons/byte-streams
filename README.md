@@ -7,7 +7,7 @@ This library is a Rosetta stone for all the byte representations Java has to off
 ### usage
 
 ```clj
-[byte-streams "0.1.7"] 
+[byte-streams "0.1.8"] 
 ```
 
 ### converting types

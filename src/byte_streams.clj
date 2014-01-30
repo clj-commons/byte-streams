@@ -49,8 +49,8 @@
 
 ;;;
 
-(defonce ^:private src->dst->conversion (atom nil))
-(defonce ^:private src->dst->transfer (atom nil))
+(defonce src->dst->conversion (atom nil))
+(defonce src->dst->transfer (atom nil))
 
 (def ^:private ^:const object-array (class (clojure.core/object-array 0)))
 (def ^:private ^:const byte-array (class (clojure.core/byte-array 0)))
