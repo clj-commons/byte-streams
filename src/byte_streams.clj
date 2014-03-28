@@ -43,7 +43,7 @@
 
 (defprotocol ByteSource
   (take-bytes! [_ n options] "Takes `n` bytes from the byte source."))
- 
+
 (defprotocol ByteSink
   (send-bytes! [_ bytes options] "Puts `bytes` in the byte sink."))
 
@@ -146,13 +146,13 @@
     (cond
       (and (class? a) (class? b))
       (.isAssignableFrom ^Class b a)
-      
+
       (and (protocol? b) (class? a))
       (class-satisfies? b a)
-      
+
       (and (seq-of? a) (seq-of? b))
       (assignable? (second a) (second b))
-      
+
       :else
       (= a b))))
 
@@ -221,7 +221,7 @@
       java.io.Closeable
       (close [_]
         (close-fn))
-      
+
       clojure.lang.Sequential
       clojure.lang.ISeq
       clojure.lang.Seqable
@@ -273,13 +273,13 @@
                         (fn [[a b :as a+b]]
                           (if-let [f (get-in @src->dst->conversion a+b)]
                             f
-                            
+
                             ;; implicit (seq-of a) -> (seq-of b) conversion
                             (if-let [f (when (every? seq-of? a+b)
                                          (get-in @src->dst->conversion (map second a+b)))]
                               (fn [x options]
                                 (map #(f % options) x))
-                              
+
                               ;; this shouldn't ever happen, but let's have a decent error message all the same
                               (throw
                                 (IllegalStateException.
@@ -289,7 +289,7 @@
              (let [close-fns (atom (tuple))
                    result (reduce
                             (fn [x f]
-                              
+
                               ;; keep track of everything that needs to be closed once the bytes are exhausted
                               (when (closeable? x)
                                 (swap! close-fns conj #(close x)))
@@ -298,7 +298,7 @@
                             fns)]
                (if-let [close-fn (when-let [fns (seq @close-fns)]
                                    #(doseq [f fns]
-                                      (f)))] 
+                                      (f)))]
                  (if (sequential? result)
                    (closeable-seq result true close-fn)
                    (do
@@ -392,6 +392,15 @@
     ^long [x dst]
     (memoized-cost (type-descriptor x) dst)))
 
+(defn precache-conversions
+  "Walk the graph of conversions, making all subsequent conversions reliably fast."
+  []
+  (->> @src->dst->conversion
+    (mapcat #(map list (repeat %) (possible-conversions %)))
+    distinct
+    (map #(apply conversion-path %))
+    dorun))
+
 ;;; transfer
 
 (defn- default-transfer [source sink {:keys [chunk-size] :or {chunk-size 1024} :as options}]
@@ -416,28 +425,28 @@
                           first
                           second)]
         (cond
-          
+
           (and src' dst')
           (let [f (get-in @src->dst->transfer [src' dst'])]
             (fn [source sink options]
-              (let [source' (convert source src')
-                    sink' (convert sink dst')]
+              (let [source' (convert source src' options)
+                    sink' (convert sink dst' options)]
                 (f source' sink' options)
                 (doseq [x [source sink source' sink']]
                   (when (closeable? x)
                     (close x))))))
-          
+
           (and
             (conversion-path src ByteSource)
             (conversion-path dst ByteSink))
           (fn [source sink options]
-            (let [source' (convert source ByteSource)
-                  sink' (convert sink ByteSink)]
+            (let [source' (convert source ByteSource options)
+                  sink' (convert sink ByteSink options)]
               (default-transfer source' sink' options)
               (doseq [x [source sink source' sink']]
                 (when (closeable? x)
                   (close x)))))
-          
+
           :else
           nil)))))
 
@@ -589,7 +598,7 @@
           (let [^ByteBuffer buf (first s)]
             (.mark buf)
             (.write sink buf)
-            (.reset buf) 
+            (.reset buf)
             (recur (rest s)))))
       (.close sink))
     source))
@@ -604,7 +613,7 @@
        (close source))
     options))
 
-;; input-stream => reader 
+;; input-stream => reader
 (def-conversion [InputStream Reader]
   [input-stream {:keys [encoding] :or {encoding "utf-8"}}]
   (BufferedReader. (InputStreamReader. input-stream ^String encoding)))
@@ -654,7 +663,7 @@
                     (let [remaining (- (.size fc) offset)]
                       (lazy-seq
                         (cons
-                          (.map fc 
+                          (.map fc
                             (if writable?
                               FileChannel$MapMode/READ_WRITE
                               FileChannel$MapMode/READ_ONLY)
@@ -696,7 +705,7 @@
   (let [^FileChannel fc (convert file ReadableByteChannel options)]
     (try
       (loop [idx 0]
-        (let [n (.transferTo fc channel idx chunk-size)]
+        (let [n (.transferTo fc idx chunk-size channel)]
           (when (pos? n)
             (recur (+ idx n)))))
       (finally
@@ -705,12 +714,15 @@
 (def-transfer [InputStream OutputStream]
   [input-stream output-stream {:keys [chunk-size] :or {chunk-size 4096} :as options}]
   (let [ary (clojure.core/byte-array chunk-size)]
-    (loop []
-      (let [n (.read ^InputStream input-stream ary)]
-        (when (pos? n)
-          (.write ^OutputStream output-stream ary 0 n)
-          (.flush ^OutputStream output-stream)
-          (recur)))))) 
+    (try
+      (loop []
+        (let [n (.read ^InputStream input-stream ary)]
+          (when (pos? n)
+            (.write ^OutputStream output-stream ary 0 n)
+            (.flush ^OutputStream output-stream)
+            (recur))))
+      (finally
+        (.close ^OutputStream output-stream)))))
 
 ;;; protocol extensions
 

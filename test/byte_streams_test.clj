@@ -55,11 +55,18 @@
 
 (deftest test-transfer
   (doseq [dst (possible-conversions text)]
-    (let [file (temp-file)]
+    (let [file (temp-file)
+          file' (temp-file)]
       (transfer (convert text dst) dev-null)
       (transfer (convert text dst) file {:chunk-size 128})
       (is (= text (to-string file)))
-      (is (= text (to-string (to-byte-buffers file {:chunk-size 128})))))))
+      (transfer (convert text dst) file {:chunk-size 128, :append? false})
+      (is (= text (to-string file)))
+      (is (= text (to-string (to-byte-buffers file {:chunk-size 128}))))
+
+      (transfer file file')
+      (is (= text (to-string file')))
+      (is (= text (to-string (to-byte-buffers file' {:chunk-size 128})))))))
 
 ;;;
 

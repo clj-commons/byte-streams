@@ -14,3 +14,4 @@ push
 dump*
 /doc
 DS_Store
+.nrepl*
