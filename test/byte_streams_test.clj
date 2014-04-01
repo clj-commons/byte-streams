@@ -86,8 +86,7 @@
     (doseq [chunk-size (range 1 (+ 1 (.capacity buf)))]
       (is (Arrays/equals
             (to-byte-array (convert buf (seq-of ByteBuffer) {:chunk-size chunk-size}))
-            arr)))
-    (is (empty? (convert buf (seq-of ByteBuffer) {:chunk-size 0})))))
+            arr)))))
 
 (deftest ^:stress test-large-chunked-stream
   (let [text-seq (repeat 1e4 text)]
