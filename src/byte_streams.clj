@@ -700,7 +700,7 @@
           (when (pos? n)
             (recur (+ idx n)))))
       (finally
-        (.force fc)
+        (.force fc true)
         (.close fc)))))
 
 (def-transfer [File WritableByteChannel]
@@ -712,7 +712,7 @@
           (when (pos? n)
             (recur (+ idx n)))))
       (finally
-        (.force fc)
+        (.force fc true)
         (.close fc)))))
 
 (def-transfer [InputStream OutputStream]
