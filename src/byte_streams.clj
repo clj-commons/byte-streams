@@ -336,7 +336,7 @@
                   size of the chunks, which default to 4096 bytes.
 
    `encoding`   - if a string is being encoded or decoded, `:encoding` describes the charset that is used, which
-                  defaults to 'utf-8'
+                  defaults to 'UTF-8'
 
    `direct?`    - if a byte-buffer is being allocated, `:direct?` describes whether it should be a direct buffer,
                   defaulting to false"
@@ -461,7 +461,7 @@
                   size of the chunks, which default to 4096 bytes.
 
    `encoding`   - if a string is being encoded or decoded, `:encoding` describes the charset that is used, which
-                  defaults to 'utf-8'
+                  defaults to 'UTF-8'
 
    `append?`    - if a file is being written to, `:append?` determines whether the bytes will overwrite the existing content
                   or be appended to the end of the file.  This defaults to true."
@@ -577,12 +577,12 @@
 
 ;; string => byte-array
 (def-conversion [String byte-array]
-  [s {:keys [encoding] :or {encoding "utf-8"}}]
+  [s {:keys [encoding] :or {encoding "UTF-8"}}]
   (.getBytes s ^String (name encoding)))
 
 ;; byte-array => string
 (def-conversion ^{:cost 1.5} [byte-array String]
-  [ary {:keys [encoding] :or {encoding "utf-8"}}]
+  [ary {:keys [encoding] :or {encoding "UTF-8"}}]
   (String. ^bytes ary (name encoding)))
 
 ;; lazy-seq of byte-buffers => channel
@@ -593,14 +593,16 @@
         source (doto ^AbstractSelectableChannel (.source pipe)
                  (.configureBlocking true))]
     (future
-      (loop [s bufs]
-        (when (and (not (empty? s)) (.isOpen sink))
-          (let [^ByteBuffer buf (first s)]
-            (.mark buf)
-            (.write sink buf)
-            (.reset buf)
-            (recur (rest s)))))
-      (.close sink))
+      (try
+        (loop [s bufs]
+          (when (and (not (empty? s)) (.isOpen sink))
+            (let [^ByteBuffer buf (first s)]
+              (.mark buf)
+              (.write sink buf)
+              (.reset buf)
+              (recur (rest s)))))
+        (finally
+          (.close sink))))
     source))
 
 ;; generic byte-source => lazy char-sequence
@@ -615,7 +617,7 @@
 
 ;; input-stream => reader
 (def-conversion [InputStream Reader]
-  [input-stream {:keys [encoding] :or {encoding "utf-8"}}]
+  [input-stream {:keys [encoding] :or {encoding "UTF-8"}}]
   (BufferedReader. (InputStreamReader. input-stream ^String encoding)))
 
 ;; reader => char-sequence
@@ -698,6 +700,7 @@
           (when (pos? n)
             (recur (+ idx n)))))
       (finally
+        (.force fc)
         (.close fc)))))
 
 (def-transfer [File WritableByteChannel]
@@ -709,6 +712,7 @@
           (when (pos? n)
             (recur (+ idx n)))))
       (finally
+        (.force fc)
         (.close fc)))))
 
 (def-transfer [InputStream OutputStream]
@@ -826,7 +830,7 @@
      (condp instance? x
        ByteBuffer x
        byte-array (ByteBuffer/wrap x)
-       String (ByteBuffer/wrap (.getBytes ^String x (name (get options :encoding "utf-8"))))
+       String (ByteBuffer/wrap (.getBytes ^String x (name (get options :encoding "UTF-8"))))
        (convert x ByteBuffer options))))
 
 (defn to-byte-buffers
@@ -844,7 +848,7 @@
     ([x options]
        (condp instance? x
          byte-array x
-         String (.getBytes ^String x (name (get options :encoding "utf-8")))
+         String (.getBytes ^String x (name (get options :encoding "UTF-8")))
          ByteBuffer (buf->ary x options)
          (convert x byte-array options)))))
 
@@ -885,7 +889,7 @@
   ([x options]
      (condp instance? x
        String x
-       byte-array (String. ^"[B" x ^String (get options :charset "utf-8"))
+       byte-array (String. ^"[B" x ^String (get options :charset "UTF-8"))
        (convert x String options))))
 
 (defn to-reader
