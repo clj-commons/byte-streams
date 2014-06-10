@@ -13,4 +13,6 @@
   :codox {:writer codox-md.writer/write-docs
           :include [byte-streams]}
   :global-vars {*warn-on-reflection* true}
+  :java-source-paths ["src"]
+  :javac-options ["-target" "1.5" "-source" "1.5"]
   :jvm-opts ^:replace ["-server" "-Xmx4g"])

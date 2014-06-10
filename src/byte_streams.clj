@@ -8,6 +8,8 @@
     [primitive-math :as p]
     [clj-tuple :refer (tuple)])
   (:import
+    [byte_streams
+     ByteBufferInputStream]
     [java.nio
      ByteBuffer
      DirectByteBuffer]
@@ -503,6 +505,11 @@
   [ary]
   (ByteArrayInputStream. ary))
 
+;; byte-buffer => input-stream
+(def-conversion ^{:cost 0} [ByteBuffer InputStream]
+  [ary]
+  (ByteBufferInputStream. ary))
+
 ;; byte-buffer => byte-array
 (def-conversion [ByteBuffer byte-array]
   [buf]
@@ -586,7 +593,7 @@
   (String. ^bytes ary (name encoding)))
 
 ;; lazy-seq of byte-buffers => channel
-(def-conversion [(seq-of ByteBuffer) ReadableByteChannel]
+(def-conversion ^{:cost 1.5} [(seq-of ByteBuffer) ReadableByteChannel]
   [bufs]
   (let [pipe (Pipe/open)
         ^WritableByteChannel sink (.sink pipe)
@@ -864,7 +871,10 @@
   ([x]
      (to-input-stream x nil))
   ([x options]
-     (convert x InputStream options)))
+     (condp instance?
+       byte-array (ByteArrayInputStream. x)
+       ByteBuffer (ByteBufferInputStream. x)
+       (convert x InputStream options))))
 
 (defn ^CharSequence to-char-sequence
   "Converts to the object to a `java.lang.CharSequence`."
