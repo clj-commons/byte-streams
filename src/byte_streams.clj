@@ -871,7 +871,7 @@
   ([x]
      (to-input-stream x nil))
   ([x options]
-     (condp instance?
+     (condp instance? x
        byte-array (ByteArrayInputStream. x)
        ByteBuffer (ByteBufferInputStream. x)
        (convert x InputStream options))))
