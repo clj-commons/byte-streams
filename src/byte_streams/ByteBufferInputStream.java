@@ -12,6 +12,28 @@ public class ByteBufferInputStream extends InputStream {
         _buf = buf;
     }
 
+    public int available() {
+        return _buf.remaining();
+    }
+
+    public boolean markSupported() {
+        return true;
+    }
+
+    public void mark(int readlimit) {
+        _buf.mark();
+    }
+
+    public void reset() {
+        _buf.reset();
+    }
+
+    public long skip(long n) {
+        int nPrime = Math.min((int)n, _buf.remaining());
+        _buf.position(_buf.position() + nPrime);
+        return (long)nPrime;
+    }
+
     public int read() throws IOException {
         if (!_buf.hasRemaining()) {
             return -1;

@@ -506,7 +506,7 @@
   (ByteArrayInputStream. ary))
 
 ;; byte-buffer => input-stream
-(def-conversion ^{:cost 0} [ByteBuffer InputStream]
+#_(def-conversion ^{:cost 0} [ByteBuffer InputStream]
   [ary]
   (ByteBufferInputStream. ary))
 
@@ -873,7 +873,7 @@
   ([x options]
      (condp instance? x
        byte-array (ByteArrayInputStream. x)
-       ByteBuffer (ByteBufferInputStream. x)
+       ;; ByteBuffer (ByteBufferInputStream. x)
        (convert x InputStream options))))
 
 (defn ^CharSequence to-char-sequence
