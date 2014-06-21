@@ -506,9 +506,9 @@
   (ByteArrayInputStream. ary))
 
 ;; byte-buffer => input-stream
-#_(def-conversion ^{:cost 0} [ByteBuffer InputStream]
-  [ary]
-  (ByteBufferInputStream. ary))
+(def-conversion ^{:cost 0} [ByteBuffer InputStream]
+  [buf]
+  (ByteBufferInputStream. (.duplicate buf)))
 
 ;; byte-buffer => byte-array
 (def-conversion [ByteBuffer byte-array]
@@ -603,10 +603,8 @@
       (try
         (loop [s bufs]
           (when (and (not (empty? s)) (.isOpen sink))
-            (let [^ByteBuffer buf (first s)]
-              (.mark buf)
+            (let [buf (.duplicate ^ByteBuffer (first s))]
               (.write sink buf)
-              (.reset buf)
               (recur (rest s)))))
         (finally
           (.close sink))))
@@ -873,7 +871,7 @@
   ([x options]
      (condp instance? x
        byte-array (ByteArrayInputStream. x)
-       ;; ByteBuffer (ByteBufferInputStream. x)
+       ByteBuffer (ByteBufferInputStream. x)
        (convert x InputStream options))))
 
 (defn ^CharSequence to-char-sequence

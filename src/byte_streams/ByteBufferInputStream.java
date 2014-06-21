@@ -29,16 +29,16 @@ public class ByteBufferInputStream extends InputStream {
     }
 
     public long skip(long n) {
-        int nPrime = Math.min((int)n, _buf.remaining());
-        _buf.position(_buf.position() + nPrime);
-        return (long)nPrime;
+        int nP = Math.min((int)n, _buf.remaining());
+        _buf.position(_buf.position() + nP);
+        return (long)nP;
     }
 
     public int read() throws IOException {
         if (!_buf.hasRemaining()) {
             return -1;
         } else {
-            return _buf.get();
+            return (int) _buf.get() & 0xFF;
         }
     }
 
