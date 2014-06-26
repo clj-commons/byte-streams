@@ -405,7 +405,8 @@
 
 ;;; transfer
 
-(defn- default-transfer [source sink {:keys [chunk-size] :or {chunk-size 1024} :as options}]
+(defn- default-transfer
+  [source sink {:keys [chunk-size] :or {chunk-size 1024} :as options}]
   (loop []
     (when-let [b (take-bytes! source chunk-size options)]
       (send-bytes! sink b options)
@@ -433,21 +434,19 @@
             (fn [source sink options]
               (let [source' (convert source src' options)
                     sink' (convert sink dst' options)]
-                (f source' sink' options)
-                (doseq [x [source sink source' sink']]
-                  (when (closeable? x)
-                    (close x))))))
+                (f source' sink' options))))
 
           (and
             (conversion-path src ByteSource)
             (conversion-path dst ByteSink))
-          (fn [source sink options]
+          (fn [source sink {:keys [close?] :or {close? true} :as options}]
             (let [source' (convert source ByteSource options)
                   sink' (convert sink ByteSink options)]
               (default-transfer source' sink' options)
-              (doseq [x [source sink source' sink']]
-                (when (closeable? x)
-                  (close x)))))
+              (when close?
+                (doseq [x [source sink source' sink']]
+                  (when (closeable? x)
+                    (close x))))))
 
           :else
           nil)))))
@@ -466,7 +465,9 @@
                   defaults to 'UTF-8'
 
    `append?`    - if a file is being written to, `:append?` determines whether the bytes will overwrite the existing content
-                  or be appended to the end of the file.  This defaults to true."
+                  or be appended to the end of the file.  This defaults to true.
+
+   `close?`     - whether the sink should be closed once the transfer is done, defaults to true."
   ([source sink]
      (transfer source sink nil))
   ([source sink options]
@@ -709,7 +710,13 @@
         (.close fc)))))
 
 (def-transfer [File WritableByteChannel]
-  [file channel {:keys [chunk-size] :or {chunk-size (int 1e6)} :as options}]
+  [file
+   channel
+   {:keys [chunk-size
+           close?]
+    :or {chunk-size (int 1e6)
+         close? true}
+    :as options}]
   (let [^FileChannel fc (convert file ReadableByteChannel options)]
     (try
       (loop [idx 0]
@@ -717,21 +724,30 @@
           (when (pos? n)
             (recur (+ idx n)))))
       (finally
-        (.force fc true)
+        (when close?
+          (.close ^WritableByteChannel channel))
         (.close fc)))))
 
 (def-transfer [InputStream OutputStream]
-  [input-stream output-stream {:keys [chunk-size] :or {chunk-size 4096} :as options}]
+  [input-stream
+   output-stream
+   {:keys [chunk-size
+           close?]
+    :or {chunk-size 4096
+         close? true}
+    :as options}]
   (let [ary (clojure.core/byte-array chunk-size)]
     (try
       (loop []
         (let [n (.read ^InputStream input-stream ary)]
           (when (pos? n)
             (.write ^OutputStream output-stream ary 0 n)
-            (.flush ^OutputStream output-stream)
             (recur))))
+      (.flush ^OutputStream output-stream)
       (finally
-        (.close ^OutputStream output-stream)))))
+        (.close ^InputStream input-stream)
+        (when close?
+          (.close ^OutputStream output-stream))))))
 
 ;;; protocol extensions
 
@@ -739,11 +755,13 @@
 
   OutputStream
   (send-bytes! [this b _]
-    (.write ^OutputStream this ^bytes (convert b byte-array)))
+    (let [^OutputStream os this]
+      (.write os ^bytes (convert b byte-array))))
 
   WritableByteChannel
   (send-bytes! [this b _]
-    (.write this ^ByteBuffer (convert b ByteBuffer))))
+    (let [^WritableByteChannel ch this]
+      (.write ch ^ByteBuffer (convert b ByteBuffer)))))
 
 (extend-protocol ByteSource
 
@@ -873,6 +891,13 @@
        byte-array (ByteArrayInputStream. x)
        ByteBuffer (ByteBufferInputStream. x)
        (convert x InputStream options))))
+
+(defn ^InputStream to-output-stream
+  "Converts the object to a `java.io.OutputStream`."
+  ([x]
+     (to-output-stream x nil))
+  ([x options]
+     (convert x OutputStream options)))
 
 (defn ^CharSequence to-char-sequence
   "Converts to the object to a `java.lang.CharSequence`."
