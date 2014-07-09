@@ -53,7 +53,7 @@ Notice that we describe a sequence of a type as `(seq-of type)`, and that we've 
 
 * `:chunk-size` - the size in bytes of each chunk when converting a stream into a lazy seq of discrete chunks, defaults to `4096`
 * `:direct?` - whether any `ByteBuffers` which are created should be [direct](http://stackoverflow.com/a/5671880/228387), default to `false`
-* `:encoding` - the character set for any strings we're encoding or decoding, defaults to `:utf-8`
+* `:encoding` - the character set for any strings we're encoding or decoding, defaults to `"UTF-8"`
 
 ### custom conversions
 

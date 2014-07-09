@@ -15,7 +15,7 @@
   (cond
     (.isUnderflow result) :underflow
     (.isOverflow result) :overflow
-    :else (throw (IllegalArgumentException. "Malformed byte-stream input to CharsetDecoder."))))
+    :else (throw (IllegalArgumentException. "Malformed byte-stream input to CharsetDecoder"))))
 
 (defn decode
   [^CharsetDecoder decoder ^ByteBuffer in ^CharBuffer out]
@@ -71,13 +71,13 @@
    close-fn
    {:keys [chunk-size encoding]
     :or {chunk-size 4096
-         encoding "utf-8"}}]
+         encoding "UTF-8"}}]
   (let [decoder (.newDecoder (Charset/forName encoding))
         s (lazy-char-buffer-sequence decoder chunk-size nil close-fn byte-source)]
     (reify
       java.io.Closeable
       (close [_] (when close-fn (close-fn)))
-      
+
       CharSequence
       (charAt [_ idx]
         (loop [remaining idx, s s]
@@ -96,6 +96,3 @@
           (doseq [b s]
             (.append buf b))
           (.toString buf))))))
-
-
-

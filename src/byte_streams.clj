@@ -826,7 +826,7 @@
   [bytes]
   (let [bufs (convert bytes (seq-of ByteBuffer) {:chunk-size 16})]
     (doseq [^ByteBuffer buf bufs]
-      (let [s (convert (.duplicate buf) String {:encoding "ascii"})
+      (let [s (convert (.duplicate buf) String {:encoding "ISO-8859-1"})
             bytes (repeatedly (min 16 (.remaining buf)) #(.get buf))
             padding (* 3 (- 16 (count bytes)))
             hex-format #(->> "%02X" (repeat %) (interpose " ") (apply str))]
@@ -892,6 +892,14 @@
        ByteBuffer (ByteBufferInputStream. x)
        (convert x InputStream options))))
 
+(defn ^DataInputStream to-data-input-stream
+  ([x]
+     (to-data-input-stream x nil))
+  ([x options]
+     (if (instance? DataInputStream x)
+       x
+       (DataInputStream. (to-input-stream x)))))
+
 (defn ^InputStream to-output-stream
   "Converts the object to a `java.io.OutputStream`."
   ([x]
@@ -938,7 +946,7 @@
      (to-line-seq x nil))
   ([x options]
      (let [^Reader reader (convert x Reader options)]
-       (closeable-seq (line-seq reader) true #(.close reader)))))
+       (closeable-seq (line-seq (BufferedReader. reader)) true #(.close reader)))))
 
 (defn to-byte-source
   "Converts the object to something that satisfies `ByteSource`."
