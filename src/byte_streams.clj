@@ -22,6 +22,7 @@
      FileOutputStream
      FileInputStream
      ByteArrayInputStream
+     DataInputStream
      InputStream
      OutputStream
      RandomAccessFile
