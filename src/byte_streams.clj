@@ -228,18 +228,14 @@
 
           (seq-of? src)
           (concat
-            #_[[src (stream-of (second src))]]
+            [[src (stream-of (second src))]]
             (->> src
               second
               valid-conversions
               (remove
                 (fn [[a b]]
                   (or (seq-of? b) (stream-of? b))))
-              (map (partial map seq-of))))
-
-          :else
-          [#_[src (seq-of src)]
-           #_[src (stream-of src)]])))))
+              (map (partial map seq-of)))))))))
 
 (deftype ConversionPath [path visited? cost]
   Comparable
@@ -320,16 +316,6 @@
           (or
             (get-in @src->dst->conversion a+b)
 
-            ;; a -> seq-of a
-            (and (= (seq-of a) b)
-              (fn [x _]
-                [x]))
-
-            ;; a -> stream-of a
-            (and (= (stream-of a) b)
-              (fn [x _]
-                (doto (s/stream) (s/put! x) s/close!)))
-
             ;; stream-of a -> seq-of a
             (and (stream-of? a) (seq-of? b) (= (second a) (second b))
               (fn [x _]
@@ -387,14 +373,22 @@
                                          (when-let [f (.poll close-fns)]
                                            (f)
                                            (recur))))]
-                    (if (seq? result)
+                    (cond
+
+                      (seq? result)
                       (closeable-seq result true close-fn)
+
+                      (s/source? result)
+                      (do
+                        (s/on-drained result close-fn)
+                        result)
+
+                      :else
                       (do
                         ;; we assume that if the end-result is closeable, it will take care of all the intermediate
                         ;; objects beneath it.  I think this is true as long as we're not doing multiple streaming
                         ;; reads, but this might need to be revisited.
-                        (when-not (or (and (vector? result) (closeable? (first result)))
-                                    (closeable? result))
+                        (when-not (closeable? result)
                           (close-fn))
                         result))
                     result))))))))))
@@ -434,32 +428,38 @@
   ([x dst options]
      (cond
 
-       (s/stream? x)
+       (s/source? x)
        (if (stream-of? dst)
+
+         ;; -> (stream-of a)
          (let [s' (s/stream)
                dst (if (protocol? (second dst))
                      (:var (second dst))
                      (second dst))]
-           (d/chain (s/take! x ::none)
-             (fn [msg]
-               (if (identical? ::none msg)
-                 (s/close! s')
-                 (let [src (type-descriptor msg)]
-                   (if-let [f (converter src dst)]
-                     (do
-                       (s/put! s' (f x options))
-                       (s/connect (s/map #(f % options) x) s'))
-                     (s/close! s'))))))
+           (-> x
+             (s/take! ::none)
+             (d/chain
+               (fn [msg]
+                 (if (identical? ::none msg)
+                   (s/close! s')
+                   (let [src (type-descriptor msg)]
+                     (if-let [f (converter src dst)]
+                       (do
+                         (s/put! s' (f msg options))
+                         (s/connect (s/map #(f % options) x) s'))
+                       (s/close! s')))))))
            s')
+
+
          (let [msg @(s/take! x ::none)
                src (type-descriptor msg)
                s' (s/stream)]
            (when-not (identical? ::none msg)
-             (s/put! s' msg))
-           (s/connect x s')
-           (if-let [f (converter (stream-of msg) dst)]
-             (f s' options)
-             (str "Don't know how to convert a stream of " src " into " dst))))
+             (s/put! s' msg)
+             (s/connect x s')
+             (if-let [f (converter (stream-of src) dst)]
+               (f s' options)
+               (throw (IllegalArgumentException. (str "Don't know how to convert a stream of " src " into " dst)))))))
 
        (not (or (nil? x) (and (sequential? x) (empty? x))))
        (let [src (type-descriptor x)
@@ -591,13 +591,27 @@
   ([source sink]
      (transfer source sink nil))
   ([source sink options]
-     (let [src (type-descriptor source)
-           dst (type-descriptor sink)]
-       (if-let [f (transfer-fn src dst)]
-         (f source sink options)
-         (if (seq-of? src)
-           (throw (IllegalArgumentException. (str "Don't know how to transfer between a sequence of " (second src) " to " dst)))
-           (throw (IllegalArgumentException. (str "Don't know how to transfer between " src " to " dst))))))))
+     (if (s/source? source)
+
+       (let [msg @(s/take! source ::none)
+             s' (s/stream)]
+         (when-not (identical? ::none msg)
+           (let [src (stream-of (type-descriptor msg))
+                 dst (type-descriptor sink)]
+             (if-let [f (transfer-fn src dst)]
+               (do
+                 (s/put! s' msg)
+                 (s/connect source s')
+                 (f s' sink options))
+               (throw (IllegalArgumentException. (str "Don't know how to transfer between a stream of " (second src) " to " dst)))))))
+
+       (let [src (type-descriptor source)
+             dst (type-descriptor sink)]
+         (if-let [f (transfer-fn src dst)]
+           (f source sink options)
+           (if (seq-of? src)
+             (throw (IllegalArgumentException. (str "Don't know how to transfer between a sequence of " (second src) " to " dst)))
+             (throw (IllegalArgumentException. (str "Don't know how to transfer between " src " to " dst)))))))))
 
 (def ^{:doc "Web-scale."} dev-null
   (reify ByteSink

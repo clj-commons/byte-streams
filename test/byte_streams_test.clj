@@ -34,7 +34,7 @@
         (str src " -> " dst))))
 
   ;; make sure none of our intermediate representations are strings if our target isn't a string
-  (let [invalid-destinations #{String (seq-of String) CharSequence (seq-of CharSequence) java.io.Reader (seq-of java.io.Reader)}
+  (let [invalid-destinations #{String (seq-of String) (stream-of String) CharSequence (seq-of CharSequence) (stream-of CharSequence) java.io.Reader (seq-of java.io.Reader) (stream-of java.io.Reader)}
         pairwise-conversions (->> ary
                                possible-conversions
                                (remove invalid-destinations)
