@@ -12,6 +12,9 @@ public class ByteBufferInputStream extends InputStream {
         _buf = buf;
     }
 
+    public void close() {
+    }
+
     public int available() {
         return _buf.remaining();
     }

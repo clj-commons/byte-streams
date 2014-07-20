@@ -89,7 +89,7 @@
                 (recur (- remaining (.remaining buf)) (rest s)))))))
       (length [_]
         (reduce + (map #(.remaining ^CharBuffer %) s)))
-      (subSequence [_ start end]
+      #_(subSequence [_ start end]
         )
       (toString [_]
         (let [buf (StringBuffer.)]
