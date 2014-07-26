@@ -319,12 +319,12 @@
             ;; stream-of a -> seq-of a
             (and (stream-of? a) (seq-of? b) (= (second a) (second b))
               (fn [x _]
-                (s/stream->lazy-seq x)))
+                (seq x)))
 
             ;; seq-of a -> stream-of a
             (and (seq-of? a) (stream-of? b) (= (second a) (second b))
               (fn [x _]
-                (s/lazy-seq->stream x)))
+                (s/->source x)))
 
             ;; a -> b -- seq-of a -> seq-of b
             (and (every? seq-of? a+b)
@@ -446,8 +446,10 @@
                      (if-let [f (converter src dst)]
                        (do
                          (s/put! s' (f msg options))
-                         (s/connect (s/map #(f % options) x) s'))
-                       (s/close! s')))))))
+                         (s/connect-via x #(s/put! s' (f % options)) s'))
+                       (do
+                         (s/close! x)
+                         (s/close! s'))))))))
            s')
 
 
