@@ -319,7 +319,7 @@
             ;; stream-of a -> seq-of a
             (and (stream-of? a) (seq-of? b) (= (second a) (second b))
               (fn [x _]
-                (seq x)))
+                (s/stream->seq x)))
 
             ;; seq-of a -> stream-of a
             (and (seq-of? a) (stream-of? b) (= (second a) (second b))
