@@ -4,6 +4,7 @@
   (:require
     [manifold.stream :as s]
     [manifold.deferred :as d]
+    [byte-streams.pushback-stream :as ps]
     [byte-streams.char-sequence :as cs]
     [byte-streams.utils :refer (fast-memoize)]
     [clojure.java.io :as io]
@@ -27,6 +28,7 @@
      FileOutputStream
      FileInputStream
      ByteArrayInputStream
+     ByteArrayOutputStream
      PipedOutputStream
      PipedInputStream
      DataInputStream
@@ -68,11 +70,7 @@
 (defn- protocol? [x]
   (and (map? x) (contains? x :on-interface)))
 
-(defn seq-of [x]
-  (list 'seq-of x))
-
-(defn stream-of [x]
-  (list 'stream-of x))
+(declare seq-of stream-of)
 
 (defn seq-of? [x]
   (and (seq? x)
@@ -90,6 +88,13 @@
 
 (defn- abstract-type-descriptor [x]
   (cond
+
+    (and (sequential? x) (= 'var (first x)))
+    (abstract-type-descriptor (second x))
+
+    (var? x)
+    x
+
     (seq-of? x)
     (list 'list '(quote seq-of) (abstract-type-descriptor (second x)))
 
@@ -104,6 +109,12 @@
       (if (protocol? x)
         (:var x)
         x))))
+
+(defn seq-of [x]
+  (list 'seq-of x))
+
+(defn stream-of [x]
+  (list 'stream-of x))
 
 (defmacro def-conversion
   "Defines a conversion from one type to another."
@@ -397,8 +408,11 @@
   "Returns a descriptor that can be used with `conversion-path`."
   [x]
   (cond
-    (or (class? x) (protocol? x))
+    (class? x)
     x
+
+    (protocol? x)
+    (:var x)
 
     (contains? @src->dst->conversion (class x))
     (class x)
@@ -411,7 +425,7 @@
 
 (defn convert
   "Converts `x`, if possible, into type `dst`, which can be either a class or protocol.  If no such conversion
-   is possible, an IllegalArgumentException is thrown.
+   is possible, an IllegalArgumentException is thrown.  If `x` is a stream, then the `src` type must be explicitly specified.
 
    `options` is a map, whose available settings depend on what sort of transform is being performed:
 
@@ -429,45 +443,17 @@
      (cond
 
        (s/source? x)
-       (if (stream-of? dst)
-
-         ;; -> (stream-of a)
-         (let [s' (s/stream)
-               dst (if (protocol? (second dst))
-                     (:var (second dst))
-                     (second dst))]
-           (-> x
-             (s/take! ::none)
-             (d/chain
-               (fn [msg]
-                 (if (identical? ::none msg)
-                   (s/close! s')
-                   (let [src (type-descriptor msg)]
-                     (if-let [f (converter src dst)]
-                       (do
-                         (s/put! s' (f msg options))
-                         (s/connect-via x #(s/put! s' (f % options)) s'))
-                       (do
-                         (s/close! x)
-                         (s/close! s'))))))))
-           s')
-
-
-         (let [msg @(s/take! x ::none)
-               src (type-descriptor msg)
-               s' (s/stream)]
-           (when-not (identical? ::none msg)
-             (s/put! s' msg)
-             (s/connect x s')
-             (if-let [f (converter (stream-of src) dst)]
-               (f s' options)
-               (throw (IllegalArgumentException. (str "Don't know how to convert a stream of " src " into " dst)))))))
+       (let [src (get options :source-type)]
+         (assert src "must specify `:source-type` when converting streams")
+         (if-let [f (converter src dst)]
+           (f x options)
+           (throw (IllegalArgumentException. (str "don't know how to convert " src " into " dst)))))
 
        (not (or (nil? x) (and (sequential? x) (empty? x))))
-       (let [src (type-descriptor x)
-             dst (if (protocol? dst)
-                   (:var dst)
-                   dst)]
+       (let [src (or
+                   (when (sequential? x)
+                     (get options :source-type))
+                   (type-descriptor x))]
          (if (or
                (= src dst)
                (and (class? src) (class? dst) (.isAssignableFrom ^Class dst src)))
@@ -559,11 +545,11 @@
                 (f source' sink' options))))
 
           (and
-            (conversion-path src ByteSource)
-            (conversion-path dst ByteSink))
+            (conversion-path src #'ByteSource)
+            (conversion-path dst #'ByteSink))
           (fn [source sink {:keys [close?] :or {close? true} :as options}]
-            (let [source' (convert source ByteSource options)
-                  sink' (convert sink ByteSink options)]
+            (let [source' (convert source #'ByteSource options)
+                  sink' (convert sink #'ByteSink options)]
               (default-transfer source' sink' options)
               (when close?
                 (doseq [x [source sink source' sink']]
@@ -593,6 +579,8 @@
   ([source sink]
      (transfer source sink nil))
   ([source sink options]
+     (transfer source nil sink options))
+  ([source source-type sink options]
      (if (s/source? source)
 
        (let [msg @(s/take! source ::none)
@@ -625,6 +613,26 @@
   (boolean (transfer-fn type-descriptor sink-type)))
 
 ;;; conversion definitions
+
+(def-conversion ^{:cost 0} [(stream-of byte-array) InputStream]
+  [s options]
+  (let [ps (ps/pushback-stream (get options :buffer-size 65536))]
+    (s/consume
+      (fn [^bytes ary]
+        (ps/put-array ps ary 0 (alength ary)))
+      s)
+    (s/on-drained s #(ps/close ps))
+    (ps/->input-stream ps)))
+
+(def-conversion ^{:cost 0} [(stream-of ByteBuffer) InputStream]
+  [s options]
+  (let [ps (ps/pushback-stream (get options :buffer-size 65536))]
+    (s/consume
+      (fn [buf]
+        (ps/put-buffer ps buf))
+      s)
+    (s/on-drained s #(ps/close ps))
+    (ps/->input-stream ps)))
 
 ;; byte-array => byte-buffer
 (def-conversion ^{:cost 0} [byte-array ByteBuffer]
@@ -747,7 +755,7 @@
           (.close sink))))
     source))
 
-(def-conversion ^{:cost 1.5} [(seq-of ByteSource) InputStream]
+(def-conversion ^{:cost 1.5} [(seq-of #'ByteSource) InputStream]
   [srcs options]
   (let [chunk-size (get options :chunk-size 65536)
         out (PipedOutputStream.)
@@ -762,8 +770,14 @@
           (.close out))))
     in))
 
+(def-conversion ^{:cost 2} [#'ByteSource byte-array]
+  [src options]
+  (let [os (ByteArrayOutputStream.)]
+    (transfer src os)
+    (.toByteArray os)))
+
 ;; generic byte-source => lazy char-sequence
-(def-conversion ^{:cost 2} [ByteSource CharSequence]
+(def-conversion ^{:cost 2} [#'ByteSource CharSequence]
   [source options]
   (cs/decode-byte-source
     #(let [bytes (take-bytes! source % options)]
@@ -1102,14 +1116,14 @@
   ([x]
      (to-byte-source x nil))
   ([x options]
-     (convert x ByteSource options)))
+     (convert x #'ByteSource options)))
 
 (defn to-byte-sink
   "Converts the object to something that satisfies `ByteSink`."
   ([x]
      (to-byte-sink x nil))
   ([x options]
-     (convert x ByteSink options)))
+     (convert x #'ByteSink options)))
 
 ;;;
 
@@ -1119,13 +1133,15 @@
         sign (long (if (pos? diff) -1 1))
         a (if (pos? diff) b' a')
         b (if (pos? diff) a' b')
-        limit (p/>> (.remaining a) 2)]
+        limit (p/>> (.remaining a) 2)
+        a-offset (.position a)
+        b-offset (.position b)]
     (let [cmp (loop [idx 0]
                 (if (p/>= idx limit)
                   0
                   (let [cmp (p/-
-                              (p/int->uint (.getInt a idx))
-                              (p/int->uint (.getInt b idx)))]
+                              (p/int->uint (.getInt a (p/+ idx a-offset)))
+                              (p/int->uint (.getInt b (p/+ idx b-offset))))]
                     (if (p/== 0 cmp)
                       (recur (p/+ idx 4))
                       (p/* sign cmp)))))]
@@ -1135,8 +1151,8 @@
             (if (p/>= idx limit')
               diff
               (let [cmp (p/-
-                          (p/byte->ubyte (.get a idx))
-                          (p/byte->ubyte (.get b idx)))]
+                          (p/byte->ubyte (.get a (p/+ idx a-offset)))
+                          (p/byte->ubyte (.get b (p/+ idx b-offset))))]
                 (if (p/== 0 cmp)
                   (recur (p/inc idx))
                   (p/* sign cmp))))))

@@ -11,6 +11,8 @@
      CharsetDecoder
      CoderResult]))
 
+(set! *unchecked-math* true)
+
 (defn parse-result [^CoderResult result]
   (cond
     (.isUnderflow result) :underflow
@@ -33,38 +35,39 @@
    ^ByteBuffer extra-bytes
    close-fn
    byte-source]
-  (lazy-seq
-    (let [num-bytes (+ (if extra-bytes
-                         (.remaining extra-bytes)
-                         0)
-                      (long chunk-size))
-          len (long
-                (Math/ceil
-                  (/ num-bytes
-                    (.averageCharsPerByte decoder))))
-          out (CharBuffer/allocate len)]
+  (let [chunk-size (long chunk-size)]
+    (lazy-seq
+      (let [num-bytes (+ (if extra-bytes
+                           (.remaining extra-bytes)
+                           0)
+                        (long chunk-size))
+            len (long
+                  (Math/ceil
+                    (/ num-bytes
+                      (.averageCharsPerByte decoder))))
+            out (CharBuffer/allocate len)]
 
-      (if (and extra-bytes (= :overflow (decode decoder extra-bytes out)))
+        (if (and extra-bytes (= :overflow (decode decoder extra-bytes out)))
 
-        ;; we didn't even exhaust the overflow bytes, try again
-        (cons
-          out
-          (lazy-char-buffer-sequence decoder chunk-size extra-bytes close-fn byte-source))
+          ;; we didn't even exhaust the overflow bytes, try again
+          (cons
+            out
+            (lazy-char-buffer-sequence decoder chunk-size extra-bytes close-fn byte-source))
 
-        (if-let [in (byte-source chunk-size)]
-          (let [result (decode decoder in out)]
-            (cons
-              (.flip out)
-              (lazy-char-buffer-sequence
-                decoder
-                chunk-size
-                (when (= :overflow result) in)
-                close-fn
-                byte-source)))
-          (do
-            (flush decoder out)
-            (when close-fn (close-fn))
-            (.flip out)))))))
+          (if-let [in (byte-source chunk-size)]
+            (let [result (decode decoder in out)]
+              (cons
+                (.flip out)
+                (lazy-char-buffer-sequence
+                  decoder
+                  chunk-size
+                  (when (= :overflow result) in)
+                  close-fn
+                  byte-source)))
+            (do
+              (flush decoder out)
+              (when close-fn (close-fn))
+              (.flip out))))))))
 
 (defn decode-byte-source
   [byte-source

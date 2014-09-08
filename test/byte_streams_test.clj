@@ -1,7 +1,7 @@
 (ns byte-streams-test
   (:require
     [clojure.test :refer :all]
-    [byte-streams :refer :all])
+    [byte-streams :as bs :refer :all])
   (:import
     [java.io
      File]
@@ -30,7 +30,10 @@
                                (mapcat #(map list (repeat %) (possible-conversions %)))
                                distinct)]
     (doseq [[src dst] pairwise-conversions]
-      (is (= text (-> text (convert src) (convert dst) (convert String)))
+      (is (= text (-> text
+                    (convert src)
+                    (convert dst {:source-type src})
+                    (convert String {:source-type dst})))
         (str src " -> " dst))))
 
   ;; make sure none of our intermediate representations are strings if our target isn't a string
@@ -41,7 +44,11 @@
                                (mapcat #(map list (repeat %) (remove invalid-destinations (possible-conversions %))))
                                distinct)]
     (doseq [[src dst] pairwise-conversions]
-      (is (= (seq ary) (-> ary (convert src) (convert dst) to-byte-array seq))
+      (is (= (seq ary) (-> ary
+                         (convert src)
+                         (convert dst {:source-type src})
+                         (convert (class ary) {:source-type dst})
+                         seq))
         (str src " -> " dst ": "
           (pr-str
             (concat
@@ -57,10 +64,10 @@
   (doseq [dst (possible-conversions text)]
     (let [file (temp-file)
           file' (temp-file)]
-      (transfer (convert text dst) dev-null)
-      (transfer (convert text dst) file {:chunk-size 128})
+      (transfer (convert text dst) dev-null {:source-type dst})
+      (transfer (convert text dst) file {:source-type dst, :chunk-size 128})
       (is (= text (to-string file)))
-      (transfer (convert text dst) file {:chunk-size 128, :append? false})
+      (transfer (convert text dst) file {:source-type dst, :chunk-size 128, :append? false})
       (is (= text (to-string file)))
       (is (= text (to-string (to-byte-buffers file {:chunk-size 128}))))
 
