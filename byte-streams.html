@@ -79,7 +79,7 @@
             
             
             <div class="doc"><p>Converts <code>x</code>, if possible, into type <code>dst</code>, which can be either a class or protocol.  If no such conversion
-is possible, an IllegalArgumentException is thrown.</p>
+is possible, an IllegalArgumentException is thrown.  If <code>x</code> is a stream, then the <code>src</code> type must be explicitly specified.</p>
 
 <p><code>options</code> is a map, whose available settings depend on what sort of transform is being performed:</p>
 
@@ -271,7 +271,7 @@ is possible, an IllegalArgumentException is thrown.</p>
           </div><div class="public">
             <h3><a id="var-transfer" class="source var-name" href="/src/byte_streams.clj">transfer</a></h3>
             <h4 class="var-type fn" id="var-type">fn</h4>
-            <div class="usage">[source sink]</div><div class="usage">[source sink options]</div>
+            <div class="usage">[source sink]</div><div class="usage">[source sink options]</div><div class="usage">[source source-type sink options]</div>
             
             
             <div class="doc"><p>Transfers, if possible, all bytes from <code>source</code> into <code>sink</code>.  If this cannot be accomplished, an IllegalArgumentException is
