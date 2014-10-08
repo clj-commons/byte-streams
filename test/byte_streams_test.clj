@@ -31,11 +31,16 @@
                                distinct
                                (map (partial map eval')))]
     (doseq [[src dst] pairwise-conversions]
-      (is (= text (-> text
-                    (convert src)
-                    (convert dst)
-                    (convert String)))
-        (str src " -> " dst))))
+      (is (= text
+            (-> text
+              (convert src)
+              (convert dst)
+              (convert String))
+            (-> text
+              (convert src)
+              (convert dst {:source-type src})
+              (convert String {:source-type dst})))
+        (str (pr-str src) " -> " (pr-str dst)))))
 
   ;; make sure none of our intermediate representations are strings if our target isn't a string
   (let [invalid-destinations (->> #{String CharSequence java.io.Reader}
@@ -48,11 +53,17 @@
                                distinct
                                (map (partial map eval')))]
     (doseq [[src dst] pairwise-conversions]
-      (is (= (seq ary) (-> ary
-                         (convert src)
-                         (convert dst)
-                         (convert (class ary))
-                         seq))
+      (is (= (seq ary)
+            (-> ary
+              (convert src)
+              (convert dst)
+              (convert (class ary))
+              seq)
+            (-> ary
+              (convert src)
+              (convert dst {:source-type src})
+              (convert (class ary) {:source-type dst})
+              seq))
         (str src " -> " dst ": "
           (pr-str
             (concat

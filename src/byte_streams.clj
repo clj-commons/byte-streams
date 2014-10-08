@@ -161,25 +161,27 @@
      (convert x dst nil))
   ([x dst options]
      (let [dst (g/type dst)
+           source-type (get options :source-type)
            ^Type
-           src (or (get options :source-type)
-                 (type-descriptor x))
+           src (g/type
+                 (or source-type
+                   (type-descriptor x)))
            wrapper (.wrapper src)]
 
        (cond
 
-         (and (nil? (.wrapper src)) (not (nil? (.type src))))
+         (not (nil? (.type src)))
          (if-let [f (converter src dst)]
-           (f x options)
+           (f x (if source-type (dissoc options :source-type) options))
            (throw
              (IllegalArgumentException.
                (str "Don't know how to convert " (class x) " into " (g/pprint-type dst)))))
 
          (= 'seq wrapper)
-         ((seq-converter dst) x options)
+         ((seq-converter dst) x (if source-type (dissoc options :source-type) options))
 
          (= 'stream wrapper)
-         ((stream-converter dst) x options)
+         ((stream-converter dst) x (if source-type (dissoc options :source-type) options))
 
          :else
          (throw (IllegalArgumentException. (str "invalid wrapper type: " wrapper)))))))

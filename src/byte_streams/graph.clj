@@ -75,11 +75,11 @@
   (cond
     ;; seq -> stream
     (= 'seq (.wrapper src))
-    [[[src (Type. 'stream (.type src))] (Conversion. s/->source 1)]]
+    [[[src (Type. 'stream (.type src))] (Conversion. (fn [x _] (s/->source x)) 1)]]
 
     ;; stream -> seq
     (= 'stream (.wrapper src))
-    [[[src (Type. 'seq (.type src))] (Conversion. s/stream->seq 1)]]
+    [[[src (Type. 'seq (.type src))] (Conversion. (fn [x _] (s/stream->seq x)) 1)]]
 
     :else
     nil))
