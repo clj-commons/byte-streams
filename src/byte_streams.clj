@@ -1,28 +1,27 @@
 (ns byte-streams
-  (:refer-clojure :exclude
-    [object-array byte-array])
+  (:refer-clojure :exclude [byte-array])
   (:require
-    [manifold.stream :as s]
-    [manifold.deferred :as d]
-    [byte-streams.pushback-stream :as ps]
-    [byte-streams.char-sequence :as cs]
-    [byte-streams.utils :refer (fast-memoize)]
+    [manifold
+     [stream :as s]
+     [deferred :as d]]
+    [byte-streams
+     [graph :as g]
+     [protocols :as proto]
+     [pushback-stream :as ps]
+     [char-sequence :as cs]
+     [utils :refer (fast-memoize)]]
     [clojure.java.io :as io]
-    [primitive-math :as p]
-    [clj-tuple :refer (tuple)])
+    [primitive-math :as p])
   (:import
     [byte_streams
      ByteBufferInputStream]
+    [byte_streams.graph
+     Type]
     [java.nio
      ByteBuffer
      DirectByteBuffer]
     [java.lang.reflect
      Array]
-    [java.util
-     PriorityQueue
-     LinkedList]
-    [java.util.concurrent
-     ConcurrentHashMap]
     [java.io
      File
      FileOutputStream
@@ -48,380 +47,101 @@
     [java.nio.channels.spi
      AbstractSelectableChannel]))
 
-;;; protocols
-
-(defprotocol Closeable
-  (close [_] "A protocol that is a superset of `java.io.Closeable`."))
-
-(defprotocol ByteSource
-  (take-bytes! [_ n options] "Takes `n` bytes from the byte source."))
-
-(defprotocol ByteSink
-  (send-bytes! [_ bytes options] "Puts `bytes` in the byte sink."))
-
 ;;;
 
-(def src->dst->conversion (atom nil))
+(def conversions (atom (g/conversion-graph)))
 (defonce src->dst->transfer (atom nil))
 
-(def ^:private ^:const object-array (class (clojure.core/object-array 0)))
 (def ^:private ^:const byte-array (class (clojure.core/byte-array 0)))
 
-(defn- protocol? [x]
-  (and (map? x) (contains? x :on-interface)))
-
-(declare seq-of stream-of)
-
-(defn seq-of? [x]
-  (and (seq? x)
-    (symbol? (first x))
-    (or
-      (= 'seq-of (first x))
-      (= #'seq-of (resolve (first x))))))
-
-(defn stream-of? [x]
-  (and (seq? x)
-    (symbol? (first x))
-    (or
-      (= 'stream-of (first x))
-      (= #'stream-of (resolve (first x))))))
-
-(defn- abstract-type-descriptor [x]
-  (cond
-
-    (and (sequential? x) (= 'var (first x)))
-    (abstract-type-descriptor (second x))
-
-    (var? x)
-    x
-
-    (seq-of? x)
-    (list 'list '(quote seq-of) (abstract-type-descriptor (second x)))
-
-    (stream-of? x)
-    (list 'list '(quote stream-of) (abstract-type-descriptor (second x)))
-
-    :else
-    (let [x (resolve x)
-          x (if (var? x)
-              @x
-              x)]
-      (if (protocol? x)
-        (:var x)
-        x))))
-
 (defn seq-of [x]
-  (list 'seq-of x))
+  (g/type 'seq (if (identical? bytes x) byte-array x)))
 
 (defn stream-of [x]
-  (list 'stream-of x))
+  (g/type 'stream (if (identical? bytes x) byte-array x)))
+
+(defn type-descriptor
+  "Returns a descriptor of the type of the given instance."
+  [x]
+  (cond
+
+    (identical? bytes x)
+    (g/type byte-array)
+
+    (sequential? x)
+    (if (and (instance? clojure.lang.IPending x) (not (realized? x)))
+      (seq-of nil)
+      (seq-of (.type ^Type (type-descriptor (first x)))))
+
+    (s/source? x)
+    (stream-of nil)
+
+    :else
+    (g/type (class x))))
+
+(defn- normalize-type-descriptor [x]
+  (cond
+    (instance? Type x)
+    x
+
+    (or (= 'bytes x) (= bytes x))
+    (g/type byte-array)
+
+    :else
+    (g/type (eval x))))
 
 (defmacro def-conversion
   "Defines a conversion from one type to another."
   [[src dst :as conversion] params & body]
-  (let [src' (abstract-type-descriptor src)
-        dst' (abstract-type-descriptor dst)]
-    `(swap! src->dst->conversion assoc-in [~src' ~dst']
-       (with-meta
-         (fn [~(with-meta (first params)
-                 {:tag (when-not (var? src')
-                         (if (= byte-array src')
-                           'bytes
-                           src))})
-              ~(if-let [options (second params)]
-                 options
-                 `_#)]
-           ~@body)
-         (merge
-           ~(meta conversion)
-           {::conversion [~src' ~dst']})))))
+  (let [^Type src (normalize-type-descriptor src)
+        dst (normalize-type-descriptor dst)]
+    `(swap! conversions g/assoc-conversion ~src ~dst
+       (fn [~(with-meta (first params)
+               {:tag (when-not (or (var? (.type src)) (.wrapper src))
+                       (if (= src (normalize-type-descriptor 'bytes))
+                         'bytes
+                         (.getName ^Class (.type src))))})
+            ~(if-let [options (second params)]
+               options
+               `_#)]
+         ~@body)
+       ~(get (meta conversion) :cost 1))))
 
 (defmacro def-transfer
   "Defines a byte transfer from one type to another."
   [[src dst] params & body]
-  (let [src' (abstract-type-descriptor src)
-        dst' (abstract-type-descriptor dst)]
-    `(swap! src->dst->transfer assoc-in [~src' ~dst']
-       (fn [~(with-meta (first params) {:tag src'})
-            ~(with-meta (second params) {:tag dst'})
+  (let [src (normalize-type-descriptor src)
+        dst (normalize-type-descriptor dst)]
+    `(swap! src->dst->transfer assoc-in [~src ~dst]
+       (fn [~(with-meta (first params) {:tag src})
+            ~(with-meta (second params) {:tag dst})
             ~(if-let [options (get params 2)] options (gensym "options"))]
          ~@body))))
 
 ;;; convert
 
-(def ^:private ^:dynamic *searched* #{})
-
-(defn- searched? [k dst]
-  (*searched* [k dst]))
-
-(defn- cost [a b]
-  (cond
-
-    (= a b)
-    0
-
-    (= b (seq-of a))
-    0
-
-    (= b (stream-of a))
-    0
-
-    (and (stream-of? a) (seq-of? b) (= (second a) (second b)))
-    1.0
-
-    (and (seq-of? a) (stream-of? b) (= (second a) (second b)))
-    1.0
-
-    :else
-    (-> (get-in @src->dst->conversion [a b]
-          (when (or
-                  (and (stream-of? a) (stream-of? b))
-                  (and (seq-of? a) (seq-of? b)))
-            (get-in @src->dst->conversion [(second a) (second b)])))
-      meta
-      (get :cost 1))))
-
-(defn- class-satisfies? [protocol ^Class c]
-  (boolean
-    (or
-      (.isAssignableFrom ^Class (:on-interface protocol) c)
-      (some
-        #(.isAssignableFrom ^Class % c)
-        (keys (:impls protocol))))))
-
-(defn- assignable? [a b]
-  (let [a (if (var? a) @a a)
-        b (if (var? b) @b b)]
-    (cond
-      (and (class? a) (class? b))
-      (.isAssignableFrom ^Class b a)
-
-      (and (protocol? b) (class? a))
-      (class-satisfies? b a)
-
-      (and (seq-of? a) (seq-of? b))
-      (assignable? (second a) (second b))
-
-      :else
-      (= a b))))
-
-(defn- equivalent-targets [x]
-  (let [x (if (var? x) @x x)]
-    (cond
-      (seq-of? x)    (->> x second equivalent-targets (map seq-of))
-      (stream-of? x) (->> x second equivalent-targets (map stream-of))
-      (class? x)     [x]
-      (protocol? x)  (conj (keys (get x :impls)) (:on-interface x))
-      :else          [x])))
-
-(def ^:private valid-conversions
+(def ^:private converter
   (fast-memoize
-    (fn [src]
-      (concat
+    (fn [src dst]
+      (g/conversion-fn @conversions src dst))))
 
-        (->> @src->dst->conversion
-          keys
-          (filter (partial assignable? src))
-          (mapcat #(map vector (repeat %) (keys (get @src->dst->conversion %))))
-          (remove (comp nil? second)))
+(declare convert)
 
-        (cond
-          (stream-of? src)
-          (concat
-            [[src (seq-of (second src))]]
-            (->> src
-              second
-              valid-conversions
-              (remove
-                (fn [[a b]]
-                  (or (seq-of? b) (stream-of? b))))
-              (map (partial map stream-of))))
+(def ^:private seq-converter
+  (fast-memoize
+    (fn [dst]
+      (g/seq-conversion-fn @conversions convert 'seq dst))))
 
-          (seq-of? src)
-          (concat
-            [[src (stream-of (second src))]]
-            (->> src
-              second
-              valid-conversions
-              (remove
-                (fn [[a b]]
-                  (or (seq-of? b) (stream-of? b))))
-              (map (partial map seq-of)))))))))
-
-(deftype ConversionPath [path visited? cost]
-  Comparable
-  (compareTo [_ x]
-    (let [cmp (compare cost (.cost ^ConversionPath x))]
-      (if (zero? cmp)
-        (compare (count path) (count (.path ^ConversionPath x)))
-        cmp))))
-
-(defn- conj-path [^ConversionPath p src dst]
-  (ConversionPath.
-    (conj (.path p) [src dst])
-    (conj (.visited? p) dst)
-    (+ (.cost p) (cost src dst))))
+(def ^:private stream-converter
+  (fast-memoize
+    (fn [dst]
+      (g/seq-conversion-fn @conversions convert 'stream dst))))
 
 (defn conversion-path [src dst]
-  (let [q (doto (PriorityQueue.)
-            (.add (ConversionPath. [] #{src} 0)))
-        dsts (equivalent-targets dst)]
-    (loop []
-      (when-let [^ConversionPath p (.poll q)]
-        (let [curr (or (-> p .path last second) src)]
-          (if (some #(assignable? curr %) dsts)
-            (.path p)
-            (do
-              (doseq [[src dst] (->> curr
-                                  valid-conversions
-                                  (remove (fn [[src dst]] ((.visited? p) dst))))]
-                (.add q (conj-path p src dst)))
-              (recur))))))))
-
-(defn- closeable-seq [s exhaustible? close-fn]
-  (if (empty? s)
-    (when exhaustible?
-      (close-fn)
-      nil)
-    (reify
-
-      Object
-      (finalize [_]
-        (close-fn))
-
-      java.io.Closeable
-      (close [_]
-        (close-fn))
-
-      clojure.lang.Sequential
-      clojure.lang.ISeq
-      clojure.lang.Seqable
-      (seq [this] this)
-      (cons [_ a]
-        (closeable-seq (cons a s) exhaustible? close-fn))
-      (next [this]
-        (closeable-seq (next s) exhaustible? close-fn))
-      (more [this]
-        (let [rst (next this)]
-          (if (empty? rst)
-            '()
-            rst)))
-      (first [_]
-        (first s))
-      (equiv [a b]
-        (= s b)))))
-
-(let [m (ConcurrentHashMap.)]
-  (defn- closeable? [x]
-    (let [c (class x)
-          v (.get m c)]
-      (if (nil? v)
-        (let [v (satisfies? Closeable x)]
-          (.put m c v)
-          v)
-        v))))
-
-(def ^:private converter
-  (let [conversion-fn
-        (fn [[a b :as a+b]]
-          (or
-            (get-in @src->dst->conversion a+b)
-
-            ;; stream-of a -> seq-of a
-            (and (stream-of? a) (seq-of? b) (= (second a) (second b))
-              (fn [x _]
-                (s/stream->seq x)))
-
-            ;; seq-of a -> stream-of a
-            (and (seq-of? a) (stream-of? b) (= (second a) (second b))
-              (fn [x _]
-                (s/->source x)))
-
-            ;; a -> b -- seq-of a -> seq-of b
-            (and (every? seq-of? a+b)
-              (when-let [f (get-in @src->dst->conversion [(second a) (second b)])]
-                (fn [x options]
-                  (map #(f % options) x))))
-
-            ;; a -> b -- stream-of a -> stream-of b
-            (and (every? stream-of? a+b)
-              (when-let [f (get-in @src->dst->conversion [(second a) (second b)])]
-                (fn [x options]
-                  (s/map #(f % options) x))))
-
-            (throw
-              (IllegalArgumentException.
-                (str "We thought we could convert between " a " and " b ", but we can't.")))))]
-    (fast-memoize
-      (fn [src dst]
-        (when-let [path (conversion-path src dst)]
-          (condp = (count path)
-            0 (fn [x _] x)
-
-            1 (let [f (conversion-fn (first path))]
-                (if (closeable? src)
-                  (fn [x options]
-                    (let [x' (f x options)]
-                      (close x)
-                      x'))
-                  f))
-
-            ;; multiple stages
-            (let [fns (apply tuple (map conversion-fn path))]
-              (fn [x options]
-                (let [close-fns (LinkedList.)
-                      result (reduce
-                               (fn [x f]
-
-                                 ;; keep track of everything that needs to be closed once the bytes are exhausted
-                                 (when (closeable? x)
-                                   (.add close-fns #(close x)))
-                                 (f x options))
-                               x
-                               fns)]
-                  (if-let [close-fn (when-not (.isEmpty close-fns)
-                                      #(loop []
-                                         (when-let [f (.poll close-fns)]
-                                           (f)
-                                           (recur))))]
-                    (cond
-
-                      (seq? result)
-                      (closeable-seq result true close-fn)
-
-                      (s/source? result)
-                      (do
-                        (s/on-drained result close-fn)
-                        result)
-
-                      :else
-                      (do
-                        ;; we assume that if the end-result is closeable, it will take care of all the intermediate
-                        ;; objects beneath it.  I think this is true as long as we're not doing multiple streaming
-                        ;; reads, but this might need to be revisited.
-                        (when-not (closeable? result)
-                          (close-fn))
-                        result))
-                    result))))))))))
-
-(defn type-descriptor
-  "Returns a descriptor that can be used with `conversion-path`."
-  [x]
-  (cond
-    (class? x)
-    x
-
-    (protocol? x)
-    (:var x)
-
-    (contains? @src->dst->conversion (class x))
-    (class x)
-
-    (or (sequential? x) (= object-array (class x)))
-    (seq-of (type-descriptor (first x)))
-
-    :else
-    (class x)))
+  (let [path (-> @conversions
+               (g/conversion-path (g/type src) (g/type dst))
+               :path)]
+    (map (partial mapv g/pprint-type) path)))
 
 (defn convert
   "Converts `x`, if possible, into type `dst`, which can be either a class or protocol.  If no such conversion
@@ -440,84 +160,63 @@
   ([x dst]
      (convert x dst nil))
   ([x dst options]
-     (cond
+     (let [dst (g/type dst)
+           ^Type
+           src (or (get options :source-type)
+                 (type-descriptor x))
+           wrapper (.wrapper src)]
 
-       (s/source? x)
-       (let [src (get options :source-type)]
-         (assert src "must specify `:source-type` when converting streams")
+       (cond
+
+         (and (nil? (.wrapper src)) (not (nil? (.type src))))
          (if-let [f (converter src dst)]
            (f x options)
-           (throw (IllegalArgumentException. (str "don't know how to convert " src " into " dst)))))
+           (throw
+             (IllegalArgumentException.
+               (str "Don't know how to convert " (class x) " into " (g/pprint-type dst)))))
 
-       (not (or (nil? x) (and (sequential? x) (empty? x))))
-       (let [src (or
-                   (when (sequential? x)
-                     (get options :source-type))
-                   (type-descriptor x))]
-         (if (or
-               (= src dst)
-               (and (class? src) (class? dst) (.isAssignableFrom ^Class dst src)))
-           x
-           (if-let [f (converter src dst)]
-             (f x options)
-             (throw (IllegalArgumentException.
-                      (if (seq-of? src)
-                        (str "Don't know how to convert a sequence of " (second src) " into " dst)
-                        (str "Don't know how to convert " src " into " dst)))))))
+         (= 'seq wrapper)
+         ((seq-converter dst) x options)
 
-       :else
-       nil)))
+         (= 'stream wrapper)
+         ((stream-converter dst) x options)
+
+         :else
+         (throw (IllegalArgumentException. (str "invalid wrapper type: " wrapper)))))))
 
 (defn possible-conversions
-  "Returns a list of all possible conversion targets from the initial value or class."
-  [x]
-  (let [sources (equivalent-targets (type-descriptor x))
-        destinations (->> @src->dst->conversion
-                       vals
-                       (mapcat keys)
-                       (concat (keys @src->dst->conversion))
-                       distinct)]
-    (->> destinations
-      (concat
-        (->> destinations
-          (map #(when-not (seq-of? %) (seq-of %)))
-          (remove nil?))
-        (->> destinations
-          (map #(when-not (stream-of? %) (stream-of %)))
-          (remove nil?)))
-      distinct
-      (filter
-        (fn [dst]
-          (some
-            #(conversion-path % dst)
-            sources))))))
+  "Returns a list of all possible conversion targets from value."
+  [src]
+  (let [^Type src (g/type src)
+        pred (cond
+               (.type src)
+               (partial converter src)
+
+               (= 'seq (.wrapper src))
+               seq-converter
+
+               (= 'stream (.wrapper src))
+               stream-converter)]
+    (->> @conversions
+      g/possible-targets
+      (filter pred)
+      (map g/pprint-type))))
 
 (let [memoized-cost (fast-memoize
                       (fn [src dst]
-                        (->> (conversion-path src dst)
-                          (map #(apply cost %))
-                          (reduce +))))]
+                        (:cost (g/conversion-path conversions src dst))))]
   (defn conversion-cost
     "Returns the estimated cost of converting the data `x` to the destination type `dst`."
     ^long [x dst]
     (memoized-cost (type-descriptor x) dst)))
-
-(defn precache-conversions
-  "Walk the graph of conversions, making all subsequent conversions reliably fast."
-  []
-  (->> @src->dst->conversion
-    (mapcat #(map list (repeat %) (possible-conversions %)))
-    distinct
-    (map #(apply conversion-path %))
-    dorun))
 
 ;;; transfer
 
 (defn- default-transfer
   [source sink {:keys [chunk-size] :or {chunk-size 1024} :as options}]
   (loop []
-    (when-let [b (take-bytes! source chunk-size options)]
-      (send-bytes! sink b options)
+    (when-let [b (proto/take-bytes! source chunk-size options)]
+      (proto/send-bytes! sink b options)
       (recur))))
 
 (def ^:private transfer-fn
@@ -527,11 +226,11 @@
                           keys
                           (map (fn [src']
                                  (and
-                                   (conversion-path src src')
+                                   (converter src src')
                                    (when-let [dst' (some
-                                                     #(and (conversion-path dst %) %)
+                                                     #(and (converter dst %) %)
                                                      (keys (@src->dst->transfer src')))]
-                                     [(conversion-path src src') [src' dst']]))))
+                                     [src' dst']))))
                           (sort-by (comp count first))
                           first
                           second)]
@@ -545,16 +244,16 @@
                 (f source' sink' options))))
 
           (and
-            (conversion-path src #'ByteSource)
-            (conversion-path dst #'ByteSink))
+            (converter src #'proto/ByteSource)
+            (converter dst #'proto/ByteSink))
           (fn [source sink {:keys [close?] :or {close? true} :as options}]
-            (let [source' (convert source #'ByteSource options)
-                  sink' (convert sink #'ByteSink options)]
+            (let [source' (convert source #'proto/ByteSource options)
+                  sink' (convert sink #'proto/ByteSink options)]
               (default-transfer source' sink' options)
               (when close?
                 (doseq [x [source sink source' sink']]
-                  (when (closeable? x)
-                    (close x))))))
+                  (when (proto/closeable? x)
+                    (proto/close x))))))
 
           :else
           nil)))))
@@ -599,12 +298,10 @@
              dst (type-descriptor sink)]
          (if-let [f (transfer-fn src dst)]
            (f source sink options)
-           (if (seq-of? src)
-             (throw (IllegalArgumentException. (str "Don't know how to transfer between a sequence of " (second src) " to " dst)))
-             (throw (IllegalArgumentException. (str "Don't know how to transfer between " src " to " dst)))))))))
+           (throw (IllegalArgumentException. (str "Don't know how to transfer between " src " to " dst))))))))
 
 (def ^{:doc "Web-scale."} dev-null
-  (reify ByteSink
+  (reify proto/ByteSink
     (send-bytes! [_ _ _])))
 
 (defn optimized-transfer?
@@ -614,7 +311,7 @@
 
 ;;; conversion definitions
 
-(def-conversion ^{:cost 0} [(stream-of byte-array) InputStream]
+(def-conversion ^{:cost 0} [(stream-of bytes) InputStream]
   [s options]
   (let [ps (ps/pushback-stream (get options :buffer-size 65536))]
     (s/consume
@@ -635,7 +332,7 @@
     (ps/->input-stream ps)))
 
 ;; byte-array => byte-buffer
-(def-conversion ^{:cost 0} [byte-array ByteBuffer]
+(def-conversion ^{:cost 0} [bytes ByteBuffer]
   [ary {:keys [direct?] :or {direct? false}}]
   (if direct?
     (let [len (Array/getLength ary)
@@ -646,7 +343,7 @@
     (ByteBuffer/wrap ary)))
 
 ;; byte-array => input-stream
-(def-conversion ^{:cost 0} [byte-array InputStream]
+(def-conversion ^{:cost 0} [bytes InputStream]
   [ary]
   (ByteArrayInputStream. ary))
 
@@ -656,7 +353,7 @@
   (ByteBufferInputStream. (.duplicate buf)))
 
 ;; byte-buffer => byte-array
-(def-conversion [ByteBuffer byte-array]
+(def-conversion [ByteBuffer bytes]
   [buf]
   (if (.hasArray buf)
     (if (== (alength (.array buf)) (.remaining buf))
@@ -678,7 +375,7 @@
     (empty? bufs)
     (ByteBuffer/allocate 0)
 
-    (and (empty? (rest bufs)) (not (closeable? bufs)))
+    (and (empty? (rest bufs)) (not (proto/closeable? bufs)))
     (first bufs)
 
     :else
@@ -690,8 +387,8 @@
         (.mark b)
         (.put buf b)
         (.reset b))
-      (when (closeable? bufs)
-        (close bufs))
+      (when (proto/closeable? bufs)
+        (proto/close bufs))
       (.flip buf))))
 
 ;; byte-buffer => sequence of byte-buffers
@@ -719,7 +416,7 @@
   [channel {:keys [chunk-size direct?] :or {chunk-size 4096, direct? false} :as options}]
   (when (.isOpen channel)
     (lazy-seq
-      (when-let [b (take-bytes! channel chunk-size options)]
+      (when-let [b (proto/take-bytes! channel chunk-size options)]
         (cons b (convert channel (seq-of ByteBuffer) options))))))
 
 ;; input-stream => channel
@@ -733,7 +430,7 @@
   (.getBytes s ^String (name encoding)))
 
 ;; byte-array => string
-(def-conversion ^{:cost 2} [byte-array String]
+(def-conversion ^{:cost 2} [bytes String]
   [ary {:keys [encoding] :or {encoding "UTF-8"}}]
   (String. ^bytes ary (name encoding)))
 
@@ -755,7 +452,7 @@
           (.close sink))))
     source))
 
-(def-conversion ^{:cost 1.5} [(seq-of #'ByteSource) InputStream]
+(def-conversion ^{:cost 1.5} [(seq-of #'proto/ByteSource) InputStream]
   [srcs options]
   (let [chunk-size (get options :chunk-size 65536)
         out (PipedOutputStream.)
@@ -770,20 +467,31 @@
           (.close out))))
     in))
 
-(def-conversion ^{:cost 2} [#'ByteSource byte-array]
+(def-conversion ^{:cost 1.5} [InputStream byte-array]
+  [in options]
+  (let [out (ByteArrayOutputStream. (p/max 64 (.available in)))
+        buf (clojure.core/byte-array 16384)]
+    (loop []
+      (let [len (.read in buf 0 16384)]
+        (when-not (neg? len)
+          (.write out buf 0 len)
+          (recur))))
+    (.toByteArray out)))
+
+(def-conversion ^{:cost 2} [#'proto/ByteSource byte-array]
   [src options]
   (let [os (ByteArrayOutputStream.)]
     (transfer src os)
     (.toByteArray os)))
 
 ;; generic byte-source => lazy char-sequence
-(def-conversion ^{:cost 2} [#'ByteSource CharSequence]
+(def-conversion ^{:cost 2} [#'proto/ByteSource CharSequence]
   [source options]
   (cs/decode-byte-source
-    #(let [bytes (take-bytes! source % options)]
+    #(let [bytes (proto/take-bytes! source % options)]
        (convert bytes ByteBuffer options))
-    #(when (closeable? source)
-       (close source))
+    #(when (proto/closeable? source)
+       (proto/close source))
     options))
 
 ;; input-stream => reader
@@ -802,7 +510,7 @@
           (do
             (.append sb ary 0 n)
             (recur))
-          sb)))))
+          (.toString sb))))))
 
 ;; char-sequence => string
 (def-conversion [CharSequence String]
@@ -843,7 +551,7 @@
                             offset
                             (min remaining chunk-size))
                           (buf-seq (+ offset chunk-size)))))))]
-    (closeable-seq
+    (g/closeable-seq
       (buf-seq 0)
       false
       #(do
@@ -916,7 +624,7 @@
 
 ;;; protocol extensions
 
-(extend-protocol ByteSink
+(extend-protocol proto/ByteSink
 
   OutputStream
   (send-bytes! [this b _]
@@ -928,7 +636,7 @@
     (let [^WritableByteChannel ch this]
       (.write ch ^ByteBuffer (convert b ByteBuffer)))))
 
-(extend-protocol ByteSource
+(extend-protocol proto/ByteSource
 
   InputStream
   (take-bytes! [this n _]
@@ -971,12 +679,7 @@
         (.position this (+ n (.position this)))
         buf))))
 
-(extend-protocol Closeable
 
-  java.io.Closeable
-  (close [this] (.close this))
-
-  )
 
 ;;; print-bytes
 
@@ -1109,21 +812,21 @@
      (to-line-seq x nil))
   ([x options]
      (let [^Reader reader (convert x Reader options)]
-       (closeable-seq (line-seq (BufferedReader. reader)) true #(.close reader)))))
+       (g/closeable-seq (line-seq (BufferedReader. reader)) true #(.close reader)))))
 
 (defn to-byte-source
   "Converts the object to something that satisfies `ByteSource`."
   ([x]
      (to-byte-source x nil))
   ([x options]
-     (convert x #'ByteSource options)))
+     (convert x #'proto/ByteSource options)))
 
 (defn to-byte-sink
   "Converts the object to something that satisfies `ByteSink`."
   ([x]
      (to-byte-sink x nil))
   ([x options]
-     (convert x #'ByteSink options)))
+     (convert x #'proto/ByteSink options)))
 
 ;;;
 

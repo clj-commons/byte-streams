@@ -5,22 +5,13 @@
     [java.util.concurrent
      ConcurrentHashMap]))
 
-(definline re-nil [x]
-  `(let [x# ~x]
-     (if (identical? ::nil x#) nil x#)))
-
-(definline de-nil [x]
-  `(let [x# ~x]
-     (if (nil? x#) ::nil x#)))
-
 (defmacro memoize-form [m f & args]
   `(let [k# (tuple ~@args)]
      (let [v# (.get ~m k#)]
-       (re-nil
-         (if (nil? v#)
-           (let [v# (de-nil (~f ~@args))]
-             (or (.putIfAbsent ~m k# v#) v#))
-           v#)))))
+       (if (nil? v#)
+         (let [v# (delay (~f ~@args))]
+           @(or (.putIfAbsent ~m k# v#) v#))
+         @v#))))
 
 (defn fast-memoize
   "A version of `memoize` which has equivalent behavior, but is faster."
@@ -44,8 +35,7 @@
       ([x y z w u v & rest]
          (let [k (list* x y z w u v rest)]
            (let [v (.get ^ConcurrentHashMap m k)]
-             (re-nil
-               (if (nil? v)
-                 (let [v (de-nil (apply f k))]
-                   (or (.putIfAbsent m k v) v))
-                 v))))))))
+             (if (nil? v)
+               (let [v (delay (apply f k))]
+                 @(or (.putIfAbsent m k v) v))
+               @v)))))))
