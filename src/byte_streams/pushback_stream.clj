@@ -53,13 +53,13 @@
 
   (read [this]
     (let [ary (byte-array 1)
-          len @(.take this ary 0 1 true)]
+          len (long @(.take this ary 0 1 true))]
       (if (zero? len)
         -1
         (p/bit-and 0xFF (get ary 0)))))
 
   (read [this ary offset length]
-    (let [n @(.take this ary offset length true)]
+    (let [n (long @(.take this ary offset length true))]
       (if (zero? n)
         -1
         n)))

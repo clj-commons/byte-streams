@@ -37,9 +37,10 @@
    byte-source]
   (let [chunk-size (long chunk-size)]
     (lazy-seq
-      (let [num-bytes (+ (if extra-bytes
-                           (.remaining extra-bytes)
-                           0)
+      (let [num-bytes (+ (long
+                           (if extra-bytes
+                             (.remaining extra-bytes)
+                             0))
                         (long chunk-size))
             len (long
                   (Math/ceil

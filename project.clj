@@ -2,10 +2,10 @@
   :description "A simple way to handle the menagerie of Java byte represenations."
   :license {:name "MIT License"
             :url "http://opensource.org/licenses/MIT"}
-  :dependencies [[primitive-math "0.1.3"]
-                 [clj-tuple "0.1.5"]
+  :dependencies [[primitive-math "0.1.4"]
+                 [clj-tuple "0.1.7"]
                  [manifold "0.1.0-beta1"]]
-  :profiles {:dev {:dependencies [[org.clojure/clojure "1.6.0"]
+  :profiles {:dev {:dependencies [[org.clojure/clojure "1.7.0-alpha2"]
                                   [reiddraper/simple-check "0.5.6"]
                                   [codox-md "0.2.0" :exclusions [org.clojure/clojure]]]}}
   :test-selectors {:stress :stress
