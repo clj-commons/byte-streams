@@ -7,7 +7,7 @@ This library is a Rosetta stone for all the byte representations Java has to off
 ### usage
 
 ```clj
-[byte-streams "0.1.13"] 
+[byte-streams "0.1.13"]
 ```
 
 ### converting types
@@ -25,11 +25,11 @@ byte-streams> (convert *1 String)
 
 ```clj
 byte-streams> (conversion-path String java.nio.ByteBuffer)
-([java.lang.String [B] 
+([java.lang.String [B]
  [[B java.nio.ByteBuffer])
 ```
 
-While we can't turn a string into a `ByteBuffer`, we can turn a string into a `byte[]`, and `byte[]` into a `ByteBuffer`.  When invoked, `convert` will choose the minimal path along the graph of available conversions.  Common conversions are exposed via `to-byte-buffer`, `to-byte-buffers`, `to-byte-array`, `to-input-stream`, `to-readable-channel`, `to-char-sequence`, `to-string`, and `to-line-seq`.  
+While we can't turn a string into a `ByteBuffer`, we can turn a string into a `byte[]`, and `byte[]` into a `ByteBuffer`.  When invoked, `convert` will choose the minimal path along the graph of available conversions.  Common conversions are exposed via `to-byte-buffer`, `to-byte-buffers`, `to-byte-array`, `to-input-stream`, `to-readable-channel`, `to-char-sequence`, `to-string`, and `to-line-seq`.
 
 Every type can exist either by itself, or as a sequence.  For instance, we can create an `InputStream` representing an infinite number of repeated strings:
 
@@ -41,11 +41,11 @@ byte-stream> (to-input-stream (repeat "hello"))
 And then we can turn that into a lazy sequence of `ByteBuffers`:
 
 ```clj
-byte-streams> (take 2 
-                (convert *1 
-                  (seq-of java.nio.ByteBuffer) 
+byte-streams> (take 2
+                (convert *1
+                  (seq-of java.nio.ByteBuffer)
                   {:chunk-size 128}))
-(#<HeapByteBuffer java.nio.HeapByteBuffer[pos=0 lim=128 cap=128]> 
+(#<HeapByteBuffer java.nio.HeapByteBuffer[pos=0 lim=128 cap=128]>
  #<HeapByteBuffer java.nio.HeapByteBuffer[pos=0 lim=128 cap=128]>)
 ```
 
@@ -61,7 +61,7 @@ While there are conversions defined for all common byte types, this can be exten
 
 ```clj
 ;; a conversion from byte-buffers to my-byte-representation
-(def-conversion [ByteBuffer MyByteRepresentation] 
+(def-conversion [ByteBuffer MyByteRepresentation]
   [buf options]
   (buffer->my-representation buf options))
 
@@ -119,8 +119,8 @@ byte-streams> (compare-bytes "abc" "abd")
 ```clj
 ;; each element is a conversion tuple of to/from
 byte-streams> (conversion-path java.io.File String)
-([java.io.File java.nio.channels.ReadableByteChannel] 
- [#'byte-streams/ByteSource java.lang.CharSequence] 
+([java.io.File java.nio.channels.ReadableByteChannel]
+ [#'byte-streams/ByteSource java.lang.CharSequence]
  [java.lang.CharSequence java.lang.String])
 
 ;; but if a conversion is impossible...
@@ -128,14 +128,10 @@ byte-streams> (conversion-path java.io.OutputStream java.io.InputStream)
 nil
 ```
 
-`byte-streams/possible-conversions` returns a list of possible conversion targets for an object or type:
+`byte-streams/possible-conversions` returns a list of possible conversion targets for a type.
 
 ```clj
 byte-streams> (possible-conversions String)
-(java.lang.String java.io.InputStream java.nio.DirectByteBuffer java.nio.ByteBuffer (seq-of java.nio.ByteBuffer) java.io.Reader java.nio.channels.ReadableByteChannel [B java.lang.CharSequence)
-
-;; we can ask the same of an instance of that type
-byte-streams> (possible-conversions "abc")
 (java.lang.String java.io.InputStream java.nio.DirectByteBuffer java.nio.ByteBuffer (seq-of java.nio.ByteBuffer) java.io.Reader java.nio.channels.ReadableByteChannel [B java.lang.CharSequence)
 ```
 

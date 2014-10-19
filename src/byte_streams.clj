@@ -97,7 +97,7 @@
         dst (normalize-type-descriptor dst)]
     `(swap! conversions g/assoc-conversion ~src ~dst
        (fn [~(with-meta (first params)
-               {:tag (when-not (or (var? (.type src)) (.wrapper src))
+               {:tag (when (and (instance? Class (.type src)) (not (.wrapper src)))
                        (if (= src (normalize-type-descriptor 'bytes))
                          'bytes
                          (.getName ^Class (.type src))))})
@@ -184,7 +184,7 @@
          ((stream-converter dst) x (if source-type (dissoc options :source-type) options))
 
          :else
-         (throw (IllegalArgumentException. (str "invalid wrapper type: " wrapper)))))))
+         (throw (IllegalArgumentException. (str "invalid wrapper type: " (pr-str wrapper) " " (pr-str (.type src)))))))))
 
 (defn possible-conversions
   "Returns a list of all possible conversion targets from value."
@@ -223,42 +223,49 @@
 
 (def ^:private transfer-fn
   (fast-memoize
-    (fn this [src dst]
-      (let [[src' dst'] (->> @src->dst->transfer
-                          keys
-                          (map (fn [src']
-                                 (and
-                                   (converter src src')
-                                   (when-let [dst' (some
-                                                     #(and (converter dst %) %)
-                                                     (keys (@src->dst->transfer src')))]
-                                     [src' dst']))))
-                          (sort-by (comp count first))
-                          first
-                          second)]
-        (cond
+    (fn this [^Type src ^Type dst]
+      (let [converter-fn (cond
+                           (nil? (.wrapper src))
+                           converter
 
-          (and src' dst')
-          (let [f (get-in @src->dst->transfer [src' dst'])]
-            (fn [source sink options]
-              (let [source' (convert source src' options)
-                    sink' (convert sink dst' options)]
-                (f source' sink' options))))
+                           (= 'seq (.wrapper src))
+                           (fn [_ d] (seq-converter d))
 
-          (and
-            (converter src #'proto/ByteSource)
-            (converter dst #'proto/ByteSink))
-          (fn [source sink {:keys [close?] :or {close? true} :as options}]
-            (let [source' (convert source #'proto/ByteSource options)
-                  sink' (convert sink #'proto/ByteSink options)]
-              (default-transfer source' sink' options)
-              (when close?
-                (doseq [x [source sink source' sink']]
-                  (when (proto/closeable? x)
-                    (proto/close x))))))
+                           (= 'stream (.wrapper src))
+                           (fn [_ d] (stream-converter d)))]
+        (let [[src' dst'] (->> @src->dst->transfer
+                            keys
+                            (map (fn [src']
+                                   (and
+                                     (converter-fn src src')
+                                     (when-let [dst' (some
+                                                       #(and (converter-fn dst %) %)
+                                                       (keys (@src->dst->transfer src')))]
+                                       [src' dst']))))
+                            first)]
+          (cond
 
-          :else
-          nil)))))
+            (and src' dst')
+            (let [f (get-in @src->dst->transfer [src' dst'])]
+              (fn [source sink options]
+                (let [source' (convert source src' options)
+                      sink' (convert sink dst' options)]
+                  (f source' sink' options))))
+
+            (and
+              (converter-fn src (g/type #'proto/ByteSource))
+              (converter dst (g/type #'proto/ByteSink)))
+            (fn [source sink {:keys [close?] :or {close? true} :as options}]
+              (let [source' (convert source #'proto/ByteSource options)
+                    sink' (convert sink #'proto/ByteSink options)]
+                (default-transfer source' sink' options)
+                (when close?
+                  (doseq [x [source sink source' sink']]
+                    (when (proto/closeable? x)
+                      (proto/close x))))))
+
+            :else
+            nil))))))
 
 ;; for byte transfers
 (defn transfer
@@ -282,25 +289,11 @@
   ([source sink options]
      (transfer source nil sink options))
   ([source source-type sink options]
-     (if (s/source? source)
-
-       (let [msg @(s/take! source ::none)
-             s' (s/stream)]
-         (when-not (identical? ::none msg)
-           (let [src (stream-of (type-descriptor msg))
-                 dst (type-descriptor sink)]
-             (if-let [f (transfer-fn src dst)]
-               (do
-                 (s/put! s' msg)
-                 (s/connect source s')
-                 (f s' sink options))
-               (throw (IllegalArgumentException. (str "Don't know how to transfer between a stream of " (second src) " to " dst)))))))
-
-       (let [src (type-descriptor source)
-             dst (type-descriptor sink)]
-         (if-let [f (transfer-fn src dst)]
-           (f source sink options)
-           (throw (IllegalArgumentException. (str "Don't know how to transfer between " src " to " dst))))))))
+     (let [src (type-descriptor source)
+           dst (type-descriptor sink)]
+       (if-let [f (transfer-fn src dst)]
+         (f source sink options)
+         (throw (IllegalArgumentException. (str "Don't know how to transfer between " (g/pprint-type src) " to " (g/pprint-type dst))))))))
 
 (def ^{:doc "Web-scale."} dev-null
   (reify proto/ByteSink
@@ -490,7 +483,7 @@
 (def-conversion ^{:cost 2} [#'proto/ByteSource CharSequence]
   [source options]
   (cs/decode-byte-source
-    #(let [bytes (proto/take-bytes! source % options)]
+    #(when-let [bytes (proto/take-bytes! source % options)]
        (convert bytes ByteBuffer options))
     #(when (proto/closeable? source)
        (proto/close source))

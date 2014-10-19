@@ -28,9 +28,12 @@
   ([t]
      (if (instance? Type t)
        t
-       (Type. nil t)))
+       (type nil t)))
   ([wrapper t]
-     (Type. wrapper t)))
+     (Type. wrapper
+       (if (var? t)
+         @t
+         t))))
 
 (defn- protocol? [x]
   (and (map? x) (contains? x :on-interface)))
@@ -108,7 +111,7 @@
     (->> m
       vals
       (mapcat keys)
-      (filter (partial assignable? dst))))
+      (filter #(assignable? % dst))))
   (possible-conversions [_ src]
     (->> m
       keys
@@ -141,21 +144,25 @@
     (conj (.visited? p) dst)
     (+ (.cost p) (.cost c))))
 
-(defn conversion-path [g src dst]
-  (let [q (doto (PriorityQueue.)
-            (.add (ConversionPath. [] [] #{src} 0)))
-        dsts (equivalent-targets g dst)]
-    (loop []
-      (when-let [^ConversionPath p (.poll q)]
-        (let [curr (or (-> p .path last second) src)]
-          (if (some #(assignable? curr %) dsts)
-            p
-            (do
-              (doseq [[[src dst] c] (->> curr
-                                      (possible-conversions g)
-                                      (remove (fn [[[src dst] c]] ((.visited? p) dst))))]
-                (.add q (conj-path p src dst c)))
-              (recur))))))))
+(def conversion-path
+  (u/fast-memoize
+    (fn [g src dst]
+      (if (assignable? src dst)
+        []
+        (let [q (doto (PriorityQueue.)
+                  (.add (ConversionPath. [] [] #{src} 0)))
+              dsts (equivalent-targets g dst)]
+          (loop []
+            (when-let [^ConversionPath p (.poll q)]
+              (let [curr (or (-> p .path last second) src)]
+                (if (some #(assignable? curr %) dsts)
+                  p
+                 (do
+                   (doseq [[[src dst] c] (->> curr
+                                           (possible-conversions g)
+                                           (remove (fn [[[src dst] c]] ((.visited? p) dst))))]
+                     (.add q (conj-path p src dst c)))
+                   (recur)))))))))))
 
 ;;;
 
@@ -252,20 +259,21 @@
                (remove nil?)
                (sort-by :cost)
                first)
-        ^Type src (-> path :path first first)
-        wrapper' (.wrapper src)
-        type' (.type src)]
+        ^Type src (-> path :path first first)]
+
     (when src
-      (fn [x options]
-        (->> x
+      (let [wrapper' (.wrapper src)
+            type' (.type src)]
+        (fn [x options]
+          (->> x
 
-          ((condp = [wrapper wrapper']
-             '[seq stream] s/->source
-             '[stream seq] s/stream->seq
-             identity))
+            ((condp = [wrapper wrapper']
+               '[seq stream] s/->source
+               '[stream seq] s/stream->seq
+               identity))
 
-          ((condp = wrapper'
-             'seq (partial map #(convert % type' options))
-             'stream (partial s/map #(convert % type' options))))
+            ((condp = wrapper'
+               'seq (partial map #(convert % type' options))
+               'stream (partial s/map #(convert % type' options))))
 
-          (#((conversion-fn g src (-> path :path last last)) % options)))))))
+            (#((conversion-fn g src (-> path :path last last)) % options))))))))

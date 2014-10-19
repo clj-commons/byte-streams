@@ -76,7 +76,9 @@
     (.deleteOnExit)))
 
 (deftest test-transfer
-  (doseq [dst (possible-conversions text)]
+  (doseq [dst (->> String
+                possible-conversions
+                (map eval'))]
     (let [file (temp-file)
           file' (temp-file)]
       (transfer (convert text dst) dev-null)
