@@ -22,6 +22,8 @@
      DirectByteBuffer]
     [java.lang.reflect
      Array]
+    [java.util.concurrent.atomic
+     AtomicBoolean]
     [java.io
      File
      FileOutputStream
@@ -33,6 +35,7 @@
      DataInputStream
      InputStream
      OutputStream
+     IOException
      RandomAccessFile
      Reader
      InputStreamReader
@@ -806,8 +809,19 @@
   ([x]
      (to-line-seq x nil))
   ([x options]
-     (let [^Reader reader (convert x Reader options)]
-       (g/closeable-seq (line-seq (BufferedReader. reader)) true #(.close reader)))))
+     (let [reader (convert x Reader options)
+           reader (BufferedReader. ^Reader reader)
+           line! (fn line! []
+                   (lazy-seq
+                     (when-let [l (try
+                                    (.readLine reader)
+                                    (catch IOException e
+                                      nil))]
+                       (cons l (line!)))))]
+       (g/closeable-seq
+         (line!)
+         true
+         #(.close reader)))))
 
 (defn to-byte-source
   "Converts the object to something that satisfies `ByteSource`."
