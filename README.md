@@ -1,13 +1,13 @@
 ![](docs/header.jpg)
 
-Java has a lot of different ways to represent a stream of bytes.  Depending on the author and age of a library, it might use `byte[]`, `InputStream`, `ByteBuffer`, or `ReadableByteChannel`.  If the bytes represent strings, there's also `String`, `Reader`, and `CharSequence` to worry about.  Remembering how to convert between all of them is a thankless task, made that much worse by libraries which define their own custom representations, or composing them with Clojure's lazy sequences.
+Java has a lot of different ways to represent a stream of bytes.  Depending on the author and age of a library, it might use `byte[]`, `InputStream`, `ByteBuffer`, or `ReadableByteChannel`.  If the bytes represent strings, there's also `String`, `Reader`, and `CharSequence` to worry about.  Remembering how to convert between all of them is a thankless task, made that much worse by libraries which define their own custom representations, or composing them with Clojure's lazy sequences and stream representations.
 
 This library is a Rosetta stone for all the byte representations Java has to offer, and gives you the freedom to forget all the APIs you never wanted to know in the first place.  Complete documentation can be found [here](http://ideolalia.com/byte-streams/byte-streams.html).
 
 ### usage
 
 ```clj
-[byte-streams "0.1.13"]
+[byte-streams "0.2.0-alpha3"]
 ```
 
 ### converting types
@@ -52,8 +52,10 @@ byte-streams> (take 2
 Notice that we describe a sequence of a type as `(seq-of type)`, and that we've passed a map to `convert` describing the size of the `ByteBuffers` we want to create.  Available options include:
 
 * `:chunk-size` - the size in bytes of each chunk when converting a stream into a lazy seq of discrete chunks, defaults to `4096`
-* `:direct?` - whether any `ByteBuffers` which are created should be [direct](http://stackoverflow.com/a/5671880/228387), default to `false`
+* `:direct?` - whether any `ByteBuffers` which are created should be [direct](http://stackoverflow.com/a/5671880/228387), defaults to `false`
 * `:encoding` - the character set for any strings we're encoding or decoding, defaults to `"UTF-8"`
+
+To create a [Manifold stream](https://github.com/ztellman/manifold), use `(stream-of type)`.  To convert a core.async channel, convert it using `manifold.source/->source`.
 
 ### custom conversions
 
@@ -144,6 +146,6 @@ true
 
 ### license
 
-Copyright © 2013 Zachary Tellman
+Copyright © 2014 Zachary Tellman
 
 Distributed under the [MIT License](http://opensource.org/licenses/MIT)
