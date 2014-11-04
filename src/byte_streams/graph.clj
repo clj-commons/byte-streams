@@ -173,6 +173,9 @@
       nil)
     (reify
 
+      clojure.lang.IPending
+      (isRealized [_] (realized? s))
+
       Object
       (finalize [_]
         (close-fn))

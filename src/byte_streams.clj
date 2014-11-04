@@ -818,10 +818,7 @@
                                     (catch IOException e
                                       nil))]
                        (cons l (line!)))))]
-       (g/closeable-seq
-         (line!)
-         true
-         #(.close reader)))))
+       (line!))))
 
 (defn to-byte-source
   "Converts the object to something that satisfies `ByteSource`."
