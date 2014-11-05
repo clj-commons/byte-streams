@@ -147,22 +147,22 @@
 (def conversion-path
   (u/fast-memoize
     (fn [g src dst]
-      (if (assignable? src dst)
-        []
-        (let [q (doto (PriorityQueue.)
-                  (.add (ConversionPath. [] [] #{src} 0)))
-              dsts (equivalent-targets g dst)]
-          (loop []
-            (when-let [^ConversionPath p (.poll q)]
-              (let [curr (or (-> p .path last second) src)]
-                (if (some #(assignable? curr %) dsts)
-                  p
-                 (do
-                   (doseq [[[src dst] c] (->> curr
-                                           (possible-conversions g)
-                                           (remove (fn [[[src dst] c]] ((.visited? p) dst))))]
-                     (.add q (conj-path p src dst c)))
-                   (recur)))))))))))
+      (let [path (ConversionPath. [] [] #{src} 0)]
+        (if (assignable? src dst)
+          path
+          (let [q (doto (PriorityQueue.) (.add path))
+                dsts (equivalent-targets g dst)]
+            (loop []
+              (when-let [^ConversionPath p (.poll q)]
+                (let [curr (or (-> p .path last second) src)]
+                  (if (some #(assignable? curr %) dsts)
+                    p
+                    (do
+                      (doseq [[[src dst] c] (->> curr
+                                              (possible-conversions g)
+                                              (remove (fn [[[src dst] c]] ((.visited? p) dst))))]
+                        (.add q (conj-path p src dst c)))
+                      (recur))))))))))))
 
 ;;;
 
@@ -204,10 +204,10 @@
 
 (defn conversion-fn [g src dst]
   (when-let [path (conversion-path g src dst)]
-    (condp = (count path)
+    (condp = (count (:path path))
       0 (fn [x _] x)
 
-      1 (let [f (conversion-fn (first path))]
+      1 (let [f (->> path :fns first)]
           (if (p/closeable? src)
             (fn [x options]
               (let [x' (f x options)]
