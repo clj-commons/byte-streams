@@ -1,4 +1,4 @@
-(defproject byte-streams "0.2.0-alpha5"
+(defproject byte-streams "0.2.0-alpha6"
   :description "A simple way to handle the menagerie of Java byte represenations."
   :license {:name "MIT License"
             :url "http://opensource.org/licenses/MIT"}

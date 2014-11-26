@@ -52,7 +52,7 @@
 
 ;;;
 
-(def conversions (atom (g/conversion-graph)))
+(defonce conversions (atom (g/conversion-graph)))
 (defonce src->dst->transfer (atom nil))
 
 (def ^:private ^:const byte-array (class (clojure.core/byte-array 0)))
@@ -174,7 +174,9 @@
        (cond
 
          (not (nil? (.type src)))
-         (if-let [f (converter src dst)]
+         (if-let [f (or
+                      (converter src dst)
+                      (converter (g/type (class x)) dst))]
            (f x (if source-type (dissoc options :source-type) options))
            (throw
              (IllegalArgumentException.
