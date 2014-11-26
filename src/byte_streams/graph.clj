@@ -229,7 +229,8 @@
                            (f x options))
                          x
                          fns)]
-            (if-let [close-fn (when-not (.isEmpty close-fns)
+            (if-let [close-fn (when-not (or (p/closeable? result)
+                                          (.isEmpty close-fns))
                                 #(loop []
                                    (when-let [f (.poll close-fns)]
                                      (f)
