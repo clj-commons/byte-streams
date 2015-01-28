@@ -186,10 +186,14 @@
                (str "Don't know how to convert " (class x) " into " (g/pprint-type dst)))))
 
          (= 'seq wrapper)
-         ((seq-converter dst) x (if source-type (dissoc options :source-type) options))
+         (if-let [f (seq-converter dst)]
+           (f x (if source-type (dissoc options :source-type) options))
+           x)
 
          (= 'stream wrapper)
-         ((stream-converter dst) x (if source-type (dissoc options :source-type) options))
+         (if-let [f (stream-converter dst)]
+           (f x (if source-type (dissoc options :source-type) options))
+           x)
 
          :else
          (throw (IllegalArgumentException. (str "invalid wrapper type: " (pr-str wrapper) " " (pr-str (.type src)))))))))
