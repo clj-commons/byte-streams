@@ -21,10 +21,12 @@
 
 (let [m (ConcurrentHashMap.)]
   (defn closeable? [x]
-    (let [c (class x)
-          v (.get m c)]
-      (if (nil? v)
-        (let [v (satisfies? Closeable x)]
-          (.put m c v)
-          v)
-        v))))
+    (if (nil? x)
+      false
+      (let [c (class x)
+            v (.get m c)]
+        (if (nil? v)
+          (let [v (satisfies? Closeable x)]
+            (.put m c v)
+            v)
+          v)))))

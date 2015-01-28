@@ -68,6 +68,9 @@
   [x]
   (cond
 
+    (nil? x)
+    (g/type ::nil)
+
     (identical? bytes x)
     (g/type byte-array)
 
@@ -211,11 +214,13 @@
 
 (let [memoized-cost (fast-memoize
                       (fn [src dst]
-                        (:cost (g/conversion-path conversions src dst))))]
+                        (if-let [path (g/conversion-path @conversions src dst)]
+                          (:cost path)
+                          9999)))]
   (defn conversion-cost
     "Returns the estimated cost of converting the data `x` to the destination type `dst`."
     ^long [x dst]
-    (memoized-cost (type-descriptor x) dst)))
+    (memoized-cost (type-descriptor x) (normalize-type-descriptor dst))))
 
 ;;; transfer
 
@@ -477,6 +482,11 @@
           (.write out buf 0 len)
           (recur))))
     (.toByteArray out)))
+
+#_(let [ary (clojure.core/byte-array 0)]
+  (def-conversion ^{:cost 0} [::nil byte-array]
+    [src options]
+    ary))
 
 (def-conversion ^{:cost 2} [#'proto/ByteSource byte-array]
   [src options]
