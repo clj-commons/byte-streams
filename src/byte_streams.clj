@@ -247,6 +247,8 @@
 
                            (= 'stream (.wrapper src))
                            (fn [_ d] (stream-converter d)))]
+
+        ;; TODO: do a reverse traversal, not an exhaustive forward search
         (let [[src' dst'] (->> @src->dst->transfer
                             keys
                             (map (fn [src']
