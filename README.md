@@ -55,7 +55,7 @@ Notice that we describe a sequence of a type as `(seq-of type)`, and that we've 
 * `:direct?` - whether any `ByteBuffers` which are created should be [direct](http://stackoverflow.com/a/5671880/228387), defaults to `false`
 * `:encoding` - the character set for any strings we're encoding or decoding, defaults to `"UTF-8"`
 
-To create a [Manifold stream](https://github.com/ztellman/manifold), use `(stream-of type)`.  To convert a core.async channel, convert it using `manifold.source/->source`.
+To create a [Manifold stream](https://github.com/ztellman/manifold), use `(stream-of type)`.  To convert a core.async channel, convert it using `manifold.stream/->source`.
 
 ### custom conversions
 
