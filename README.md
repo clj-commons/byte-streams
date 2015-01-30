@@ -35,7 +35,7 @@ Every type can exist either by itself, or as a sequence.  For instance, we can c
 
 ```clj
 byte-stream> (to-input-stream (repeat "hello"))
-#<ChannelInputStream sun.nio.ch.ChannelInputStream@5440bbb4>
+#<InputStream byte_streams.InputStream@3962a02c>
 ```
 
 And then we can turn that into a lazy sequence of `ByteBuffers`:
