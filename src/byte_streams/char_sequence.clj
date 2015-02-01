@@ -9,9 +9,16 @@
     [java.nio.charset
      Charset
      CharsetDecoder
-     CoderResult]))
+     CoderResult
+     CodingErrorAction]))
 
 (set! *unchecked-math* true)
+
+(defn coding-error-action [action]
+  (case
+    :report  CodingErrorAction/REPORT
+    :ignore  CodingErrorAction/IGNORE
+    :replace CodingErrorAction/REPLACE))
 
 (defn parse-result [^CoderResult result]
   (cond
@@ -73,10 +80,14 @@
 (defn decode-byte-source
   [byte-source
    close-fn
-   {:keys [chunk-size encoding]
+   {:keys [chunk-size encoding on-error]
     :or {chunk-size 4096
+         on-encoding-error :replace
          encoding "UTF-8"}}]
-  (let [decoder (.newDecoder (Charset/forName encoding))
+  (let [action (coding-error-action on-encoding-error)
+        decoder (doto (.newDecoder (Charset/forName encoding))
+                  (.onMalformedInput action)
+                  (.onUnmappableCharacter action))
         s (lazy-char-buffer-sequence decoder chunk-size nil close-fn byte-source)]
     (reify
       java.io.Closeable
