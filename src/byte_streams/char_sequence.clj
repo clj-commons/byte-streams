@@ -80,7 +80,7 @@
 (defn decode-byte-source
   [byte-source
    close-fn
-   {:keys [chunk-size encoding on-error]
+   {:keys [chunk-size encoding on-encoding-error]
     :or {chunk-size 4096
          on-encoding-error :replace
          encoding "UTF-8"}}]
