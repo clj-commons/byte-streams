@@ -16,5 +16,5 @@
           :include [byte-streams]}
   :global-vars {*warn-on-reflection* true}
   :java-source-paths ["src"]
-  :javac-options ["-target" "1.5" "-source" "1.5"]
+  :javac-options ["-target" "1.6" "-source" "1.6"]
   :jvm-opts ^:replace ["-server" "-Xmx4g"])
