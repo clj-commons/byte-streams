@@ -1,7 +1,7 @@
 (ns byte-streams.graph
-  (:refer-clojure :exclude [type byte-array])
+  (:refer-clojure :exclude [vector type byte-array])
   (:require
-    [clj-tuple :refer [tuple]]
+    [clj-tuple :refer [vector]]
     [manifold.stream :as s]
     [byte-streams
      [utils :as u]
@@ -217,7 +217,7 @@
             f))
 
       ;; multiple stages
-      (let [fns (->> path :fns (apply tuple))]
+      (let [fns (->> path :fns (apply vector))]
         (fn [x options]
           (let [close-fns (LinkedList.)
                 result (reduce

@@ -1,12 +1,12 @@
 (ns byte-streams.utils
   (:require
-    [clj-tuple :refer (tuple)])
+    [clj-tuple :as t])
   (:import
     [java.util.concurrent
      ConcurrentHashMap]))
 
 (defmacro memoize-form [m f & args]
-  `(let [k# (tuple ~@args)]
+  `(let [k# (t/vector ~@args)]
      (let [v# (.get ~m k#)]
        (if (nil? v#)
          (let [v# (delay (~f ~@args))]

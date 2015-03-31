@@ -2,10 +2,9 @@
   (:require
     [clojure.test :refer :all]
     [byte-streams :as bs]
-    [simple-check.core :as sc]
-    [simple-check.generators :as gen]
-    [simple-check.properties :as prop]
-    [simple-check.clojure-test :as ct :refer (defspec)]))
+    [clojure.test.check.generators :as gen]
+    [clojure.test.check.properties :as prop]
+    [clojure.test.check.clojure-test :as ct :refer (defspec)]))
 
 (defn sign [x]
   (cond
