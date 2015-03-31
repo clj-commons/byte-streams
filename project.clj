@@ -3,7 +3,7 @@
   :license {:name "MIT License"
             :url "http://opensource.org/licenses/MIT"}
   :dependencies [[primitive-math "0.1.4"]
-                 [clj-tuple "0.2.0"]
+                 [clj-tuple "0.2.1"]
                  [manifold "0.1.0-beta10"]
                  [com.googlecode.juniversalchardet/juniversalchardet "1.0.3"]]
   :profiles {:dev {:dependencies [[org.clojure/clojure "1.7.0-alpha5"]
