@@ -1,12 +1,12 @@
-(defproject byte-streams "0.2.0-SNAPSHOT"
+(defproject byte-streams "0.2.0-alpha9"
   :description "A simple way to handle the menagerie of Java byte represenations."
   :license {:name "MIT License"
             :url "http://opensource.org/licenses/MIT"}
   :dependencies [[primitive-math "0.1.4"]
                  [clj-tuple "0.2.1"]
-                 [manifold "0.1.0-beta10"]
+                 [manifold "0.1.0-beta12"]
                  [com.googlecode.juniversalchardet/juniversalchardet "1.0.3"]]
-  :profiles {:dev {:dependencies [[org.clojure/clojure "1.7.0-alpha5"]
+  :profiles {:dev {:dependencies [[org.clojure/clojure "1.7.0-alpha6"]
                                   [org.clojure/test.check "0.7.0"]
                                   [codox-md "0.2.0" :exclusions [org.clojure/clojure]]]}}
   :test-selectors {:stress :stress
