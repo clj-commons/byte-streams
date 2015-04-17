@@ -14,6 +14,7 @@
     [primitive-math :as p])
   (:import
     [byte_streams
+     Utils
      ByteBufferInputStream]
     [byte_streams.graph
      Type]
@@ -55,7 +56,7 @@
 (defonce conversions (atom (g/conversion-graph)))
 (defonce src->dst->transfer (atom nil))
 
-(def ^:private ^:const byte-array (class (clojure.core/byte-array 0)))
+(def ^:private ^:const byte-array (class (Utils/byteArray 0)))
 
 (defn seq-of [x]
   (g/type 'seq (if (identical? bytes x) byte-array x)))
@@ -369,13 +370,13 @@
   (if (.hasArray buf)
     (if (== (alength (.array buf)) (.remaining buf))
       (.array buf)
-      (let [ary (clojure.core/byte-array (.remaining buf))]
+      (let [ary (Utils/byteArray (.remaining buf))]
         (doto buf
           .mark
           (.get ary 0 (.remaining buf))
           .reset)
         ary))
-    (let [^bytes ary (Array/newInstance Byte/TYPE (.remaining buf))]
+    (let [^bytes ary (Utils/byteArray (.remaining buf))]
       (doto buf .mark (.get ary) .reset)
       ary)))
 
@@ -481,7 +482,7 @@
 (def-conversion ^{:cost 1.5} [InputStream byte-array]
   [in options]
   (let [out (ByteArrayOutputStream. (p/max 64 (.available in)))
-        buf (clojure.core/byte-array 16384)]
+        buf (Utils/byteArray 16384)]
     (loop []
       (let [len (.read in buf 0 16384)]
         (when-not (neg? len)
@@ -489,7 +490,7 @@
           (recur))))
     (.toByteArray out)))
 
-#_(let [ary (clojure.core/byte-array 0)]
+#_(let [ary (Utils/byteArray 0)]
   (def-conversion ^{:cost 0} [::nil byte-array]
     [src options]
     ary))
@@ -625,7 +626,7 @@
     :or {chunk-size 4096
          close? true}
     :as options}]
-  (let [ary (clojure.core/byte-array chunk-size)]
+  (let [ary (Utils/byteArray chunk-size)]
     (try
       (loop []
         (let [n (.read ^InputStream input-stream ary)]
