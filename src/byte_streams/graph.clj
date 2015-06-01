@@ -15,9 +15,31 @@
 
 (def byte-array (class (clojure.core/byte-array 0)))
 
-(defrecord Conversion [f ^double cost])
+(declare pprint-type)
 
-(defrecord Type [wrapper type])
+(deftype Conversion [f ^double cost]
+  Object
+  (equals [_ x]
+    (and
+      (instance? Conversion x)
+      (identical? f (.f ^Conversion x))
+      (== cost (.cost ^Conversion x))))
+  (hashCode [_]
+    (bit-xor (System/identityHashCode f) (unchecked-int cost))))
+
+(deftype Type [wrapper type]
+  Object
+  (equals [_ x]
+    (and
+      (instance? Type x)
+      (= wrapper (.wrapper ^Type x))
+      (= type (.type ^Type x))))
+  (hashCode [_]
+    (bit-xor
+      (hash wrapper)
+      (hash type)))
+  (toString [this]
+    (pr-str (pprint-type this))))
 
 (defn pprint-type [^Type x]
   (if-let [wrapper (.wrapper x)]
@@ -76,6 +98,11 @@
 
 (defn implicit-conversions [^Type src]
   (cond
+
+    ;; vector -> seq
+    (= 'vector (.wrapper src))
+    [[[src (Type. 'seq (.type src))] (Conversion. (fn [x _] (seq x)) 1)]]
+
     ;; seq -> stream
     (= 'seq (.wrapper src))
     [[[src (Type. 'stream (.type src))] (Conversion. (fn [x _] (s/->source x)) 1)]]
@@ -272,11 +299,14 @@
           (->> x
 
             ((condp = [wrapper wrapper']
+               '[seq vector] vec
+               '[stream vector] (comp vec s/stream->seq)
                '[seq stream] s/->source
                '[stream seq] s/stream->seq
                identity))
 
             ((condp = wrapper'
+               'vector (partial mapv #(convert % type' options))
                'seq (partial map #(convert % type' options))
                'stream (partial s/map #(convert % type' options))))
 

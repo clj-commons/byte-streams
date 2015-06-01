@@ -1,5 +1,5 @@
 (ns byte-streams
-  (:refer-clojure :exclude [byte-array])
+  (:refer-clojure :exclude [byte-array vector-of])
   (:require
     [manifold
      [stream :as s]
@@ -64,6 +64,9 @@
 (defn stream-of [x]
   (g/type 'stream (if (identical? bytes x) byte-array x)))
 
+(defn vector-of [x]
+  (g/type 'vector (if (identical? bytes x) byte-array x)))
+
 (defn type-descriptor
   "Returns a descriptor of the type of the given instance."
   [x]
@@ -75,10 +78,11 @@
     (identical? bytes x)
     (g/type byte-array)
 
+    (vector? x)
+    (vector-of (.type ^Type (type-descriptor (first x))))
+
     (sequential? x)
-    (if (and (instance? clojure.lang.IPending x) (not (realized? x)))
-      (seq-of nil)
-      (seq-of (.type ^Type (type-descriptor (first x)))))
+    (seq-of nil)
 
     (s/source? x)
     (stream-of nil)
@@ -243,7 +247,7 @@
                            (nil? (.wrapper src))
                            converter
 
-                           (= 'seq (.wrapper src))
+                           (#{'seq 'vector} (.wrapper src))
                            (fn [_ d] (seq-converter d))
 
                            (= 'stream (.wrapper src))
@@ -259,6 +263,7 @@
                                                        #(and (converter-fn dst %) %)
                                                        (keys (@src->dst->transfer src')))]
                                        [src' dst']))))
+                            (remove nil?)
                             first)]
           (cond
 
@@ -337,8 +342,8 @@
   [s options]
   (let [ps (ps/pushback-stream (get options :buffer-size 65536))]
     (s/consume
-      (fn [buf]
-        (ps/put-buffer ps buf))
+      (fn [^ByteBuffer buf]
+        (ps/put-buffer ps (.duplicate buf)))
       s)
     (s/on-drained s #(ps/close ps))
     (ps/->input-stream ps)))
@@ -381,7 +386,7 @@
       ary)))
 
 ;; sequence of byte-buffers => byte-buffer
-(def-conversion [(seq-of ByteBuffer) ByteBuffer]
+(def-conversion [(vector-of ByteBuffer) ByteBuffer]
   [bufs {:keys [direct?] :or {direct? false}}]
   (cond
     (empty? bufs)
@@ -404,12 +409,12 @@
       (.flip buf))))
 
 ;; byte-buffer => sequence of byte-buffers
-(def-conversion ^{:cost 0} [ByteBuffer (seq-of ByteBuffer)]
+(def-conversion ^{:cost 0} [ByteBuffer (vector-of ByteBuffer)]
   [buf {:keys [chunk-size]}]
   (if chunk-size
     (let [lim (.limit buf)
           indices (range (.position buf) lim chunk-size)]
-      (map
+      (mapv
         #(-> buf
            .duplicate
            (.position %)
@@ -506,7 +511,7 @@
   [source options]
   (cs/decode-byte-source
     #(when-let [bytes (proto/take-bytes! source % options)]
-       (convert bytes ByteBuffer options))
+       (convert bytes byte-array options))
     #(when (proto/closeable? source)
        (proto/close source))
     options))
@@ -534,8 +539,7 @@
   [char-sequence]
   (.toString char-sequence))
 
-;; sequence of strings => string
-(def-conversion [(seq-of String) String]
+(def-conversion [(vector-of String) String]
   [strings]
   (let [sb (StringBuilder.)]
     (doseq [s strings]
@@ -811,10 +815,11 @@
   ([x]
      (to-string x nil))
   ([x options]
-     (condp instance? x
-       String x
-       byte-array (String. ^"[B" x ^String (get options :charset "UTF-8"))
-       (convert x String options))))
+     (let [encoding (get options :encoding "UTF-8")]
+       (condp instance? x
+         String x
+         byte-array (String. ^"[B" x ^String (name encoding))
+         (convert x String options)))))
 
 (defn to-reader
   "Converts the object to a java.io.Reader."

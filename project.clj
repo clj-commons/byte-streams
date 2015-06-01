@@ -4,8 +4,7 @@
             :url "http://opensource.org/licenses/MIT"}
   :dependencies [[primitive-math "0.1.4"]
                  [clj-tuple "0.2.1"]
-                 [manifold "0.1.0"]
-                 #_[com.googlecode.juniversalchardet/juniversalchardet "1.0.3"]]
+                 [manifold "0.1.0"]]
   :profiles {:dev {:dependencies [[org.clojure/clojure "1.7.0-alpha6"]
                                   [org.clojure/test.check "0.7.0"]
                                   [codox-md "0.2.0" :exclusions [org.clojure/clojure]]]}}

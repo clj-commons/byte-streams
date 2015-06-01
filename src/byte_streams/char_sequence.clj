@@ -3,6 +3,8 @@
   (:import
     [java.util.concurrent.locks
      ReentrantLock]
+    [java.io
+     ByteArrayOutputStream]
     [java.nio
      ByteBuffer
      CharBuffer]
@@ -88,7 +90,9 @@
         decoder (doto (.newDecoder (Charset/forName encoding))
                   (.onMalformedInput action)
                   (.onUnmappableCharacter action))
-        s (lazy-char-buffer-sequence decoder chunk-size nil close-fn byte-source)]
+        s (lazy-char-buffer-sequence decoder chunk-size nil close-fn
+            #(when-let [ary (byte-source %)]
+               (ByteBuffer/wrap ary)))]
     (reify
       java.io.Closeable
       (close [_] (when close-fn (close-fn)))
