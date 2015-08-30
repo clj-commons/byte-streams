@@ -44,40 +44,39 @@
    ^ByteBuffer extra-bytes
    close-fn
    byte-source]
-  (let [chunk-size (long chunk-size)]
-    (lazy-seq
-      (let [num-bytes (+ (long
-                           (if extra-bytes
-                             (.remaining extra-bytes)
-                             0))
-                        (long chunk-size))
-            len (long
-                  (Math/ceil
-                    (/ num-bytes
-                      (.averageCharsPerByte decoder))))
-            out (CharBuffer/allocate len)]
+  (lazy-seq
+    (let [num-bytes (+ (long
+                         (if extra-bytes
+                           (.remaining extra-bytes)
+                           0))
+                      (long chunk-size))
+          len (long
+                (Math/ceil
+                  (/ num-bytes
+                    (.averageCharsPerByte decoder))))
+          out (CharBuffer/allocate len)]
 
-        (if (and extra-bytes (= :overflow (decode decoder extra-bytes out)))
+      (if (and extra-bytes (= :overflow (decode decoder extra-bytes out)))
 
-          ;; we didn't even exhaust the overflow bytes, try again
-          (cons
-            out
-            (lazy-char-buffer-sequence decoder chunk-size extra-bytes close-fn byte-source))
+        ;; we didn't even exhaust the overflow bytes, try again
+        (cons
+          out
+          (lazy-char-buffer-sequence decoder chunk-size extra-bytes close-fn byte-source))
 
-          (if-let [in (byte-source chunk-size)]
-            (let [result (decode decoder in out)]
-              (cons
-                (.flip out)
-                (lazy-char-buffer-sequence
-                  decoder
-                  chunk-size
-                  (when (= :overflow result) in)
-                  close-fn
-                  byte-source)))
-            (do
-              (flush decoder out)
-              (when close-fn (close-fn))
-              (.flip out))))))))
+        (if-let [in (byte-source chunk-size)]
+          (let [result (decode decoder in out)]
+            (cons
+              (.flip out)
+              (lazy-char-buffer-sequence
+                decoder
+                chunk-size
+                (when (= :overflow result) in)
+                close-fn
+                byte-source)))
+          (do
+            (flush decoder out)
+            (when close-fn (close-fn))
+            (.flip out)))))))
 
 (defn decode-byte-source
   [byte-source
@@ -90,9 +89,7 @@
         decoder (doto (.newDecoder (Charset/forName encoding))
                   (.onMalformedInput action)
                   (.onUnmappableCharacter action))
-        s (lazy-char-buffer-sequence decoder chunk-size nil close-fn
-            #(when-let [ary (byte-source %)]
-               (ByteBuffer/wrap ary)))]
+        s (lazy-char-buffer-sequence decoder chunk-size nil close-fn byte-source)]
     (reify
       java.io.Closeable
       (close [_] (when close-fn (close-fn)))

@@ -431,10 +431,9 @@
 ;; channel => lazy-seq of byte-buffers
 (def-conversion [ReadableByteChannel (seq-of ByteBuffer)]
   [channel {:keys [chunk-size direct?] :or {chunk-size 4096, direct? false} :as options}]
-  (when (.isOpen channel)
-    (lazy-seq
-      (when-let [b (proto/take-bytes! channel chunk-size options)]
-        (cons b (convert channel (seq-of ByteBuffer) options))))))
+  (lazy-seq
+    (when-let [b (proto/take-bytes! channel chunk-size options)]
+      (cons b (convert channel (seq-of ByteBuffer) options)))))
 
 ;; input-stream => channel
 (def-conversion ^{:cost 0} [InputStream ReadableByteChannel]
@@ -511,7 +510,7 @@
   [source options]
   (cs/decode-byte-source
     #(when-let [bytes (proto/take-bytes! source % options)]
-       (convert bytes byte-array options))
+       (convert bytes ByteBuffer options))
     #(when (proto/closeable? source)
        (proto/close source))
     options))
@@ -676,17 +675,16 @@
 
   ReadableByteChannel
   (take-bytes! [this n {:keys [direct?] :or {direct? false}}]
-    (when (.isOpen this)
-      (let [^ByteBuffer buf (if direct?
-                              (ByteBuffer/allocateDirect n)
-                              (ByteBuffer/allocate n))]
-        (while
-          (and
-            (.isOpen this)
-            (pos? (.read this buf))))
+    (let [^ByteBuffer buf (if direct?
+                            (ByteBuffer/allocateDirect n)
+                            (ByteBuffer/allocate n))]
+      (while
+        (and
+          (.isOpen this)
+          (pos? (.read this buf))))
 
-        (when (pos? (.position buf))
-          (.flip buf)))))
+      (when (pos? (.position buf))
+        (.flip buf))))
 
   ByteBuffer
   (take-bytes! [this n _]
