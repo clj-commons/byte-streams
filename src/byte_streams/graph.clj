@@ -201,7 +201,10 @@
     (reify
 
       clojure.lang.IPending
-      (isRealized [_] (realized? s))
+      (isRealized [_]
+        (or
+          (not (instance? clojure.lang.IPending s))
+          (realized? s)))
 
       Object
       (finalize [_]
