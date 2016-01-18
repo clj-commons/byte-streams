@@ -2,6 +2,7 @@
   (:refer-clojure :exclude [take])
   (:require
     [primitive-math :as p]
+    [byte-streams.utils :refer [doit]]
     [manifold
      [utils :as u]
      [stream :as s]
@@ -31,6 +32,10 @@
   [^ByteBuffer buf
    deferred
    ^boolean eager?])
+
+(defn trigger [^Consumption c]
+  (let [^ByteBuffer buf (.buf c)]
+    (d/success! (.deferred c) (.position buf))))
 
 (defn put [^ByteBuffer src ^ByteBuffer dst]
   (let [l (.limit src)]
@@ -121,37 +126,45 @@
    PushbackStream
 
    (put [_ buf]
-     ((either
-        [do]
-        [u/with-lock lock])
+     (let [[consumers d]
+           ((either
+              [do]
+              [u/with-lock* lock])
 
-       (if closed?
-         (d/success-deferred false)
+            (if closed?
+              [nil
+               (d/success-deferred false)]
 
-         (do
-           (loop []
-             (when-let [^Consumption c (.peek consumers)]
-               (let [^ByteBuffer out (.buf c)]
-                 (put buf out)
-                 (when (or (.eager? c) (not (.hasRemaining out)))
-                   (.remove consumers)
-                   (d/success! (.deferred c) (.position out))
-                   (recur)))))
+              [(loop [acc []]
+                 (if-let [^Consumption c (.peek consumers)]
+                   (let [^ByteBuffer out (.buf c)]
+                     (put buf out)
+                     (when (or (.eager? c) (not (.hasRemaining out)))
+                       (.remove consumers)
+                       (recur (conj acc c))))
+                   acc))
 
-           (when (.hasRemaining buf)
-             (.add buffer buf)
-             (set! buffer-size (unchecked-int (p/+ buffer-size (.remaining buf)))))
+               (do
+                 (when (.hasRemaining buf)
+                   (.add buffer buf)
+                   (set! buffer-size (unchecked-int (p/+ buffer-size (.remaining buf)))))
 
-           (cond
+                 (cond
 
-             deferred
-             deferred
+                   deferred
+                   deferred
 
-             (p/<= buffer-size buffer-capacity)
-             (d/success-deferred true)
+                   (p/<= buffer-size buffer-capacity)
+                   (d/success-deferred true)
 
-             :else
-             (set! deferred (d/deferred)))))))
+                   :else
+                   (set! deferred (d/deferred))))]))]
+
+       (when consumers
+         (doit [c consumers]
+           (trigger c)))
+
+       d))
 
    (put [this ary offset length]
      (.put this
@@ -160,21 +173,28 @@
          (.limit (+ offset length)))))
 
    (pushback [_ buf]
-     ((either
-        [do]
-        [u/with-lock lock])
-       (loop []
-         (when-let [^Consumption c (.peek consumers)]
-           (let [^ByteBuffer out (.buf c)]
-             (put buf out)
-             (when (or (.eager? c) (not (.hasRemaining out)))
-               (.remove consumers)
-               (d/success! (.deferred c) (.position out))
-               (recur)))))
+     (let [consumers
+           ((either
+              [do]
+              [u/with-lock* lock])
+            (let [consumers
+                  (loop [acc []]
+                    (if-let [^Consumption c (.peek consumers)]
+                      (let [^ByteBuffer out (.buf c)]
+                        (put buf out)
+                        (when (or (.eager? c) (not (.hasRemaining out)))
+                          (.remove consumers)
+                          (recur (conj acc c))))
+                      acc))]
 
-       (when (.hasRemaining buf)
-         (.addLast buffer buf)
-         (set! buffer-size (unchecked-int (p/+ buffer-size (.remaining buf)))))))
+              (when (.hasRemaining buf)
+                (.addLast buffer buf)
+                (set! buffer-size (unchecked-int (p/+ buffer-size (.remaining buf)))))
+
+              consumers))]
+
+       (doit [c consumers]
+         (trigger c))))
 
    (pushback [this ary offset length]
      (.pushback this
@@ -183,47 +203,65 @@
          (.limit (+ offset length)))))
 
    (take [_ ary offset length eager?]
+
      (let [out (-> (ByteBuffer/wrap ary)
                  (.position offset)
                  ^ByteBuffer (.limit (+ offset length))
-                 .slice)]
-       ((either
-          [do]
-          [u/with-lock lock])
+                 .slice)
 
-        (loop []
-          (when-let [^ByteBuffer in (.peek buffer)]
-            (put in out)
-            (when-not (.hasRemaining in)
-              (.remove buffer))
-            (when (.hasRemaining out)
-              (recur))))
+           [put take]
 
-        (set! buffer-size (unchecked-int (p/- buffer-size (.position out))))
+           ((either
+              [do]
+              [u/with-lock* lock])
 
-        (when (and (p/<= buffer-size buffer-capacity) deferred)
-          (d/success! deferred true)
-          (set! deferred nil))
+            (loop []
+              (when-let [^ByteBuffer in (.peek buffer)]
+                (put in out)
+                (when-not (.hasRemaining in)
+                  (.remove buffer))
+                (when (.hasRemaining out)
+                  (recur))))
 
-        (if (or closed?
-              (and (pos? (.position out))
-                (or eager? (not (.hasRemaining out)))))
-          (d/success-deferred (.position out))
-          (let [d (d/deferred)]
-            (.add consumers (Consumption. out d eager?))
-            d)))))
+            (set! buffer-size
+              (unchecked-int
+                (p/- buffer-size
+                  (p/-
+                    (.position out)
+                    offset))))
+
+            [(when (and (p/<= buffer-size buffer-capacity) deferred)
+               (let [d deferred]
+                 (set! deferred nil)
+                 d))
+
+             (if (or closed?
+                   (and (pos? (.position out))
+                     (or eager? (not (.hasRemaining out)))))
+               (d/success-deferred (.position out))
+               (let [d (d/deferred)]
+                 (.add consumers (Consumption. out d eager?))
+                 d))])]
+
+       (when put
+         (d/success! put true))
+
+       take))
 
    (close [_]
-     ((either
-        [do]
-        [u/with-lock lock])
-       (set! closed? true)
+     (when ((either
+              [do]
+              [u/with-lock* lock])
+            (when-not closed?
+              (set! closed? true)
+              true))
        (loop []
          (when-let [^Consumption c (.poll consumers)]
            (let [^ByteBuffer buf (.buf c)]
              (d/success! (.deferred c) (.position buf)))
-           (recur)))
-       true))))
+           (recur))))
+
+     true)))
 
 (defn pushback-stream [capacity]
   (SynchronizedPushbackByteStream.

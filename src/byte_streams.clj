@@ -330,8 +330,8 @@
 
 (def-conversion ^{:cost 0} [(stream-of bytes) InputStream]
   [s options]
-  (let [ps (ps/pushback-stream (get options :buffer-size 65536))]
-    (s/consume
+  (let [ps (ps/pushback-stream (get options :buffer-size 1024))]
+    (s/consume-async
       (fn [^bytes ary]
         (ps/put-array ps ary 0 (alength ary)))
       s)
@@ -340,8 +340,8 @@
 
 (def-conversion ^{:cost 0} [(stream-of ByteBuffer) InputStream]
   [s options]
-  (let [ps (ps/pushback-stream (get options :buffer-size 65536))]
-    (s/consume
+  (let [ps (ps/pushback-stream (get options :buffer-size 1024))]
+    (s/consume-async
       (fn [^ByteBuffer buf]
         (ps/put-buffer ps (.duplicate buf)))
       s)
