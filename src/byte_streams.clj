@@ -54,6 +54,7 @@
 ;;;
 
 (defonce conversions (atom (g/conversion-graph)))
+(defonce inverse-conversions (atom (g/conversion-graph)))
 (defonce src->dst->transfer (atom nil))
 
 (def ^:private ^:const byte-array (class (Utils/byteArray 0)))
@@ -106,17 +107,21 @@
   [[src dst :as conversion] params & body]
   (let [^Type src (normalize-type-descriptor src)
         dst (normalize-type-descriptor dst)]
-    `(swap! conversions g/assoc-conversion ~src ~dst
-       (fn [~(with-meta (first params)
-               {:tag (when (and (instance? Class (.type src)) (not (.wrapper src)))
-                       (if (= src (normalize-type-descriptor 'bytes))
-                         'bytes
-                         (.getName ^Class (.type src))))})
-            ~(if-let [options (second params)]
-               options
-               `_#)]
-         ~@body)
-       ~(get (meta conversion) :cost 1))))
+    `(let [f#
+           (fn [~(with-meta (first params)
+                   {:tag (when (and (instance? Class (.type src)) (not (.wrapper src)))
+                           (if (= src (normalize-type-descriptor 'bytes))
+                             'bytes
+                             (.getName ^Class (.type src))))})
+                ~(if-let [options (second params)]
+                   options
+                   `_#)]
+             ~@body)
+
+           cost#
+           ~(get (meta conversion) :cost 1)]
+       (swap! conversions g/assoc-conversion ~src ~dst f# cost#)
+       (swap! inverse-conversions g/assoc-conversion ~dst ~src f# cost#))))
 
 (defmacro def-transfer
   "Defines a byte transfer from one type to another."
@@ -331,21 +336,28 @@
 (def-conversion ^{:cost 0} [(stream-of bytes) InputStream]
   [s options]
   (let [ps (ps/pushback-stream (get options :buffer-size 1024))]
-    (s/consume-async
-      (fn [^bytes ary]
-        (ps/put-array ps ary 0 (alength ary)))
-      s)
-    (s/on-drained s #(ps/close ps))
+    (d/loop []
+      (d/chain (s/take! s ::none)
+        (fn [^bytes msg]
+          (if (identical? ::none msg)
+            (ps/close ps)
+            (
+             do
+              (ps/put-array ps msg 0 (alength msg))
+              (d/recur))))))
     (ps/->input-stream ps)))
 
 (def-conversion ^{:cost 0} [(stream-of ByteBuffer) InputStream]
   [s options]
   (let [ps (ps/pushback-stream (get options :buffer-size 1024))]
-    (s/consume-async
-      (fn [^ByteBuffer buf]
-        (ps/put-buffer ps (.duplicate buf)))
-      s)
-    (s/on-drained s #(ps/close ps))
+    (d/loop []
+      (d/chain (s/take! s ::none)
+        (fn [^ByteBuffer msg]
+          (if (identical? ::none msg)
+            (ps/close ps)
+            (do
+              (ps/put-buffer ps (.duplicate msg))
+              (d/recur))))))
     (ps/->input-stream ps)))
 
 ;; byte-array => byte-buffer

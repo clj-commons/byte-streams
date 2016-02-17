@@ -91,15 +91,9 @@
     [lock
      ^LinkedList consumers
      ^long buffer-capacity
-     (either
-       [^:unsynchronized-mutable ^int buffer-size]
-       [^:volatile-mutable ^int buffer-size])
-     (either
-       [^:unsynchronized-mutable deferred]
-       [^:volatile-mutable deferred])
-     (either
-       [^:unsynchronized-mutable closed?]
-       [^:volatile-mutable closed?])
+     ^:unsynchronized-mutable ^int buffer-size
+     ^:unsynchronized-mutable deferred
+     ^:unsynchronized-mutable closed?
      ^LinkedList buffer]
 
     InputStream$Streamable
@@ -126,6 +120,7 @@
    PushbackStream
 
    (put [_ buf]
+
      (let [[consumers d]
            ((either
               [do]
@@ -223,12 +218,7 @@
                 (when (.hasRemaining out)
                   (recur))))
 
-            (set! buffer-size
-              (unchecked-int
-                (p/- buffer-size
-                  (p/-
-                    (.position out)
-                    offset))))
+            (set! buffer-size (unchecked-int (p/- buffer-size (.position out))))
 
             [(when (and (p/<= buffer-size buffer-capacity) deferred)
                (let [d deferred]
