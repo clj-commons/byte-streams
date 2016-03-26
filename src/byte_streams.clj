@@ -340,11 +340,13 @@
       (d/chain (s/take! s ::none)
         (fn [^bytes msg]
           (if (identical? ::none msg)
-            (ps/close ps)
-            (
-             do
-              (ps/put-array ps msg 0 (alength msg))
-              (d/recur))))))
+            (do
+              (ps/close ps)
+              false)
+            (ps/put-array ps msg 0 (alength msg))))
+        (fn [result]
+          (when result
+            (d/recur)))))
     (ps/->input-stream ps)))
 
 (def-conversion ^{:cost 0} [(stream-of ByteBuffer) InputStream]
@@ -354,10 +356,13 @@
       (d/chain (s/take! s ::none)
         (fn [^ByteBuffer msg]
           (if (identical? ::none msg)
-            (ps/close ps)
             (do
-              (ps/put-buffer ps (.duplicate msg))
-              (d/recur))))))
+              (ps/close ps)
+              false)
+            (ps/put-buffer ps (.duplicate msg))))
+        (fn [result]
+          (when result
+            (d/recur)))))
     (ps/->input-stream ps)))
 
 ;; byte-array => byte-buffer
