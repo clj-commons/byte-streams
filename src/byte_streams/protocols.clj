@@ -1,15 +1,17 @@
 (ns byte-streams.protocols
+  (:require
+   [byte-streams.utils :refer [defprotocol+]])
   (:import
     [java.util.concurrent
      ConcurrentHashMap]))
 
-(defprotocol Closeable
+(defprotocol+ Closeable
   (close [_] "A protocol that is a superset of `java.io.Closeable`."))
 
-(defprotocol ByteSource
+(defprotocol+ ByteSource
   (take-bytes! [_ n options] "Takes `n` bytes from the byte source."))
 
-(defprotocol ByteSink
+(defprotocol+ ByteSink
   (send-bytes! [_ bytes options] "Puts `bytes` in the byte sink."))
 
 (extend-protocol Closeable

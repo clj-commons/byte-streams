@@ -4,7 +4,7 @@
     [clj-tuple :refer [vector]]
     [manifold.stream :as s]
     [byte-streams
-     [utils :as u]
+     [utils :as u :refer [defprotocol+ defrecord+ deftype+]]
      [protocols :as p]])
   (:import
     [java.util.concurrent
@@ -17,7 +17,7 @@
 
 (declare pprint-type)
 
-(deftype Conversion [f ^double cost]
+(deftype+ Conversion [f ^double cost]
   Object
   (equals [_ x]
     (and
@@ -27,7 +27,7 @@
   (hashCode [_]
     (bit-xor (System/identityHashCode f) (unchecked-int cost))))
 
-(deftype Type [wrapper type]
+(deftype+ Type [wrapper type]
   Object
   (equals [_ x]
     (and
@@ -88,7 +88,7 @@
         :else
         (= a b)))))
 
-(defprotocol IConversionGraph
+(defprotocol+ IConversionGraph
   (assoc-conversion [_ src dst f cost])
   (equivalent-targets [_ dst])
   (possible-sources [_])
@@ -114,7 +114,7 @@
     :else
     nil))
 
-(deftype ConversionGraph [m]
+(deftype+ ConversionGraph [m]
   IConversionGraph
   (assoc-conversion [_ src dst f cost]
     (let [m' (assoc-in m [src dst] (Conversion. f cost))
@@ -156,7 +156,7 @@
 
 ;;;
 
-(defrecord ConversionPath [path fns visited? cost]
+(defrecord+ ConversionPath [path fns visited? cost]
   Comparable
   (compareTo [_ x]
     (let [cmp (compare cost (.cost ^ConversionPath x))]
