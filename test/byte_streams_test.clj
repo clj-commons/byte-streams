@@ -38,6 +38,8 @@
                                (map (partial map eval')))]
     (doseq [[src dst] pairwise-conversions]
 
+      (prn 'conversion src dst)
+
       (is (= text
             (-> text
               (convert src)
@@ -61,7 +63,7 @@
                                (map (partial map eval')))]
     (doseq [[src dst] pairwise-conversions]
 
-      (prn 'conversion src dst)
+      (prn 'no-string-conversion src dst)
 
       (is (= (seq ary)
             (-> ary
