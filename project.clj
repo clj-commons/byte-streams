@@ -5,7 +5,9 @@
   :dependencies [[primitive-math "0.1.5"]
                  [clj-tuple "0.2.2"]
                  [manifold "0.1.6"]]
-  :profiles {:dev {:dependencies [[org.clojure/clojure "1.8.0"]
+  :profiles {:uberjar {:aot :all
+                       :jvm-opts ["-Dclojure.compiler.direct-linking=true"]}
+             :dev {:dependencies [[org.clojure/clojure "1.8.0"]
                                   [org.clojure/test.check "0.9.0"]
                                   [codox-md "0.2.0" :exclusions [org.clojure/clojure]]]}}
   :test-selectors {:stress :stress
