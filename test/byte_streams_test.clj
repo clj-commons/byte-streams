@@ -38,8 +38,6 @@
                                (map (partial map eval')))]
     (doseq [[src dst] pairwise-conversions]
 
-      (prn 'conversion src dst)
-
       (is (= text
             (-> text
               (convert src)
@@ -62,8 +60,6 @@
                                distinct
                                (map (partial map eval')))]
     (doseq [[src dst] pairwise-conversions]
-
-      (prn 'no-string-conversion src dst)
 
       (is (= (seq ary)
             (-> ary
@@ -91,8 +87,6 @@
   (doseq [dst (->> String
                 possible-conversions
                 (map eval'))]
-
-    (prn 'transfer dst)
 
     (let [file (temp-file)
           file' (temp-file)]
