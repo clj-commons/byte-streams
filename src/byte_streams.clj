@@ -695,10 +695,8 @@
     (let [^ByteBuffer buf (if direct?
                             (ByteBuffer/allocateDirect n)
                             (ByteBuffer/allocate n))]
-      (while
-        (and
-          (.isOpen this)
-          (pos? (.read this buf))))
+
+      (while (pos? (.read this buf)))
 
       (when (pos? (.position buf))
         (.flip buf))))
