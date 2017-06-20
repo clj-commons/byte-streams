@@ -696,7 +696,12 @@
                             (ByteBuffer/allocateDirect n)
                             (ByteBuffer/allocate n))]
 
-      (while (pos? (.read this buf)))
+      (loop []
+        (when (try
+                (pos? (.read this buf))
+                (catch Throwable e
+                  false))
+          (recur)))
 
       (when (pos? (.position buf))
         (.flip buf))))
