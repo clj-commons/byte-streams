@@ -10,6 +10,7 @@
     [java.nio.charset
      Charset]
     [java.io
+     ByteArrayInputStream
      File]
     [java.nio
      ByteBuffer]
@@ -129,3 +130,14 @@
             to-input-stream
             (convert (seq-of ByteBuffer) {:chunk-size 1})
             to-byte-array)))))
+
+(deftest test-unicode-decoding
+  (let [three-byte-char "丁"
+        text (apply str (repeat 10000 three-byte-char))
+        text-bytes (.getBytes text "utf-8")]
+    (is (bytes= text-bytes
+                (.getBytes (convert text-bytes String) "utf-8")))
+    (is (bytes= text-bytes
+                (.getBytes (convert (ByteArrayInputStream. text-bytes) String) "utf-8")))
+    (is (bytes= text-bytes
+                (.getBytes (convert (ByteArrayInputStream. text-bytes) String {:chunk-size 100}) "utf-8")))))
