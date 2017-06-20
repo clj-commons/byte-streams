@@ -33,22 +33,15 @@
   (parse-result (.decode decoder in out false)))
 
 (defn flush
-  ([decoder out] (flush decoder (ByteBuffer/allocate 0) out))
-  ([^CharsetDecoder decoder ^ByteBuffer in ^CharBuffer out]
-   (and
-    (parse-result (.decode decoder in out true))
-    (parse-result (.flush decoder out)))))
+  [^CharsetDecoder decoder ^ByteBuffer in ^CharBuffer out]
+  (parse-result (.decode decoder (or in (ByteBuffer/allocate 0)) out true))
+  (parse-result (.flush decoder out)))
 
-(defn has-remaining-bytes? [^ByteBuffer byte-buffer]
-  {:pre [(some? byte-buffer)]}
-  (.hasRemaining byte-buffer))
-
-(defn merge-byte-buffers [^ByteBuffer l ^ByteBuffer r]
-  {:pre [(some? l) (some? r)]}
-  (-> (ByteBuffer/allocate (+ (.remaining l) (.remaining r)))
-      (.put l)
-      (.put r)
-      .flip))
+(defn concat-bytes [^ByteBuffer a ^ByteBuffer b]
+  (let [buf (ByteBuffer/allocate (+ (.remaining a) (.remaining b)))]
+    (.put buf a)
+    (.put buf b)
+    (.flip buf)))
 
 (defn lazy-char-buffer-sequence
   [^CharsetDecoder decoder
@@ -76,26 +69,20 @@
           (lazy-char-buffer-sequence decoder chunk-size extra-bytes close-fn byte-source))
 
         (if-let [in (byte-source chunk-size)]
-          (let [expanded-in (if (some-> extra-bytes has-remaining-bytes?)
-                              ;; in case of underflow we need to pass new buffer
-                              ;; containing remaining bytes from the initial input
-                              ;; along with some new bytes to the CharsetDecoder
-                              (merge-byte-buffers extra-bytes in)
-                              in)
-                result (decode decoder expanded-in out)]
+          (let [in (if (and extra-bytes (.hasRemaining extra-bytes))
+                     (concat-bytes extra-bytes in)
+                     in)
+                result (decode decoder in out)]
             (cons
               (.flip out)
               (lazy-char-buffer-sequence
                 decoder
                 chunk-size
-                (when (has-remaining-bytes? expanded-in)
-                  expanded-in)
+                (when (.hasRemaining ^ByteBuffer in) in)
                 close-fn
                 byte-source)))
           (do
-            (if (some? extra-bytes)
-              (flush decoder extra-bytes out)
-              (flush decoder out))
+            (flush decoder extra-bytes out)
             (when close-fn (close-fn))
             (.flip out)))))))
 
@@ -103,7 +90,7 @@
   [byte-source
    close-fn
    {:keys [chunk-size encoding on-encoding-error]
-    :or {chunk-size 4096
+    :or {chunk-size 1024
          on-encoding-error :replace
          encoding "UTF-8"}}]
   (let [action (coding-error-action on-encoding-error)

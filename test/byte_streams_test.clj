@@ -133,11 +133,8 @@
 
 (deftest test-unicode-decoding
   (let [three-byte-char "丁"
-        text (apply str (repeat 10000 three-byte-char))
-        text-bytes (.getBytes text "utf-8")]
-    (is (bytes= text-bytes
-                (.getBytes (convert text-bytes String) "utf-8")))
-    (is (bytes= text-bytes
-                (.getBytes (convert (ByteArrayInputStream. text-bytes) String) "utf-8")))
-    (is (bytes= text-bytes
-                (.getBytes (convert (ByteArrayInputStream. text-bytes) String {:chunk-size 100}) "utf-8")))))
+        text (apply str (repeat 1e4 three-byte-char))
+        text-bytes (to-byte-array text)]
+    (is (bytes= text-bytes (-> text-bytes to-string to-byte-array)))
+    (is (bytes= text-bytes (-> text-bytes to-input-stream to-string to-byte-array)))
+    (is (bytes= text-bytes (-> text-bytes (to-input-stream {:chunk-size 128}) to-string to-byte-array)))))
