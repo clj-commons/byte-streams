@@ -286,31 +286,32 @@
               result)))))))
 
 (defn seq-conversion-fn [g convert wrapper dst]
-  (let [path (->> g
-               possible-sources
-               (remove #(nil? (.wrapper ^Type %)))
-               (map #(conversion-path g % dst))
-               (remove nil?)
-               (sort-by :cost)
-               first)
+  (let [path      (->> g
+                    possible-sources
+                    (remove #(nil? (.wrapper ^Type %)))
+                    (remove #(#{String CharSequence} (.type ^Type %)))
+                    (map #(conversion-path g % dst))
+                    (remove nil?)
+                    (sort-by :cost)
+                    first)
         ^Type src (-> path :path first first)]
 
     (when src
       (let [wrapper' (.wrapper src)
-            type' (.type src)]
+            type'    (.type src)]
         (fn [x options]
           (->> x
 
             ((condp = [wrapper wrapper']
-               '[seq vector] vec
+               '[seq vector]    vec
                '[stream vector] (comp vec s/stream->seq)
-               '[seq stream] s/->source
-               '[stream seq] s/stream->seq
+               '[seq stream]    s/->source
+               '[stream seq]    s/stream->seq
                identity))
 
             ((condp = wrapper'
                'vector (partial mapv #(convert % type' options))
-               'seq (partial map #(convert % type' options))
+               'seq    (partial map #(convert % type' options))
                'stream (partial s/map #(convert % type' options))))
 
             (#((conversion-fn g src (-> path :path last last)) % options))))))))
