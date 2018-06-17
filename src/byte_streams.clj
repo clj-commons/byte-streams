@@ -434,8 +434,8 @@
       (mapv
         #(-> buf
            .duplicate
-           (.position %)
-           ^ByteBuffer (.limit (min lim (+ % chunk-size)))
+           (.position (int %))
+           ^ByteBuffer (.limit (min lim (+ (int %) chunk-size)))
            .slice)
         indices))
     [buf]))
@@ -709,7 +709,7 @@
   ByteBuffer
   (take-bytes! [this n _]
     (when (pos? (.remaining this))
-      (let [n (min (.remaining this) n)
+      (let [n (int (min (.remaining this) n))
             buf (-> this
                   .duplicate
                   ^ByteBuffer (.limit (+ (.position this) n))
