@@ -434,8 +434,8 @@
       (mapv
         #(-> buf
            .duplicate
-           (.position (int %))
-           ^ByteBuffer (.limit (min lim (+ (int %) chunk-size)))
+           ^ByteBuffer (.position (int %))
+           ^ByteBuffer (.limit (int (min lim (+ (int %) chunk-size))))
            .slice)
         indices))
     [buf]))
