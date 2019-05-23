@@ -138,3 +138,9 @@
     (is (bytes= text-bytes (-> text-bytes to-string to-byte-array)))
     (is (bytes= text-bytes (-> text-bytes to-input-stream to-string to-byte-array)))
     (is (bytes= text-bytes (-> text-bytes (to-input-stream {:chunk-size 128}) to-string to-byte-array)))))
+
+(deftest compare-bytes-former-bug
+  (let [bx (convert (byte-array [0x00 0x00 0x00 0x01]) java.nio.ByteBuffer)
+        by (convert (byte-array [0x80 0x00 0x00 0x01]) java.nio.ByteBuffer)]
+    (is (= [bx by] (sort compare-bytes [bx by])))
+    (is (= [bx by] (sort compare-bytes [by bx])))))

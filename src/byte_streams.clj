@@ -895,7 +895,20 @@
                               (p/int->uint (.getInt b (p/+ idx b-offset))))]
                     (if (p/== 0 cmp)
                       (recur (p/+ idx 4))
-                      (p/* sign cmp)))))]
+                      ;; Use (if (pos? cmp) 1 -1) to ensure that the
+                      ;; sign of the value x returned by cmp-bufs (and
+                      ;; compare-bytes) is not modified when Clojure's
+                      ;; comparator infrastructure calls (.intValue
+                      ;; x).  The intValue method truncates a Java
+                      ;; Long's most significant 32 bits away, which
+                      ;; in some cases changes the sign of the result,
+                      ;; and thus the direction of the comparison
+                      ;; result.  Such code is not needed when
+                      ;; comparing individual bytes below, because the
+                      ;; subtraction result fits within the least
+                      ;; significant 9 bits, and (.intValue x) never
+                      ;; changes the sign.
+                      (p/* sign (if (pos? cmp) 1 -1))))))]
       (if (p/== 0 (long cmp))
         (let [limit' (.remaining a)]
           (loop [idx limit]
