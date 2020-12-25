@@ -1,4 +1,0 @@
-language: clojure
-script: lein do clean, jammin 300 test
-jdk:
-  - openjdk8
