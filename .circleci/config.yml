@@ -2,12 +2,23 @@
 #
 # Check https://circleci.com/docs/2.0/language-clojure/ for more details
 #
-version: 2
+version: 2.1
+
+workflows:
+  build-deploy:
+    jobs:
+      - build
+
+      - deploy:
+          requires:
+            - build
+          context:
+            - CLOJARS_DEPLOY
 jobs:
   build:
     docker:
       # specify the version you desire here
-      - image: circleci/clojure:lein-2.9.1
+      - image: circleci/clojure:openjdk-8-lein-2.9.1
 
       # Specify service dependencies here if necessary
       # CircleCI maintains a library of pre-built images
@@ -31,7 +42,7 @@ jobs:
             # fallback to using the latest cache if no exact match is found
             - v1-dependencies-
 
-      - run: lein deps
+      - run: lein with-profile ci deps
 
       - save_cache:
           paths:
@@ -39,4 +50,43 @@ jobs:
           key: v1-dependencies-{{ checksum "project.clj" }}
 
       # run tests!
-      - run: lein do clean, test
+      - run: lein with-profile ci do clean, test
+
+  deploy:
+    docker:
+      # specify the version you desire here
+      - image: circleci/clojure:openjdk-8-lein-2.9.1
+      # Specify service dependencies here if necessary
+      # CircleCI maintains a library of pre-built images
+      # documented at https://circleci.com/docs/2.0/circleci-images/
+      # - image: circleci/postgres:9.4
+
+    working_directory: ~/repo
+
+    environment:
+      LEIN_ROOT: "true"
+      # Customize the JVM maximum heap limit
+      JVM_OPTS: -Xmx3200m
+
+    steps:
+      - checkout
+
+      # Download and cache dependencies
+      - restore_cache:
+          keys:
+            - v1-dependencies-{{ checksum "project.clj" }}
+            # fallback to using the latest cache if no exact match is found
+            - v1-dependencies-
+
+      - run:
+         name: Install babashka
+         command: bash <(curl -s https://raw.githubusercontent.com/borkdude/babashka/master/install) --dir . --download-dir .
+      - run: lein with-profile ci deps
+
+      - save_cache:
+          paths:
+            - ~/.m2
+          key: v1-dependencies-{{ checksum "project.clj" }}
+      - run:
+         name: Deploy
+         command: .circleci/maybe-deploy.bb lein with-profile ci deploy clojars
