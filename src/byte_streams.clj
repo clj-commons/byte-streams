@@ -310,7 +310,7 @@
    `append?`    - if a file is being written to, `:append?` determines whether the bytes will overwrite the existing content
                   or be appended to the end of the file.  This defaults to true.
 
-   `close?`     - whether the sink should be closed once the transfer is done, defaults to true."
+   `close?`     - whether the sink and source should be closed once the transfer is done, defaults to true."
   ([source sink]
      (transfer source sink nil))
   ([source sink options]
