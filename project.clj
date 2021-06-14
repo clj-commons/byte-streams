@@ -21,6 +21,7 @@
   :test-selectors {:stress :stress
                    :default (complement :stress)}
   :plugins [[lein-codox "0.10.3"]
+            [jonase/eastwood "0.4.3"]
             [lein-jammin "0.1.1"]
             [ztellman/lein-cljfmt "0.1.10"]]
   :cljfmt {:indents {#".*" [[:inner 0]]}}
