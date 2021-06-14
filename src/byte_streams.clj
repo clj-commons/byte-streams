@@ -102,17 +102,24 @@
     :else
     (g/type (eval x))))
 
+(defn- extract-class [^Type src]
+  (when (and (instance? Class (.type src))
+             (not (.wrapper src)))
+    (if (= src (normalize-type-descriptor 'bytes))
+      'bytes
+      (.getName ^Class (.type src)))))
+
 (defmacro def-conversion
   "Defines a conversion from one type to another."
   [[src dst :as conversion] params & body]
   (let [^Type src (normalize-type-descriptor src)
-        dst (normalize-type-descriptor dst)]
+        dst (normalize-type-descriptor dst)
+        src-meta (if-let [c (extract-class src)]
+                   {:tag c}
+                   {})]
     `(let [f#
            (fn [~(with-meta (first params)
-                   {:tag (when (and (instance? Class (.type src)) (not (.wrapper src)))
-                           (if (= src (normalize-type-descriptor 'bytes))
-                             'bytes
-                             (.getName ^Class (.type src))))})
+                   src-meta)
                 ~(if-let [options (second params)]
                    options
                    `_#)]
@@ -127,10 +134,16 @@
   "Defines a byte transfer from one type to another."
   [[src dst] params & body]
   (let [src (normalize-type-descriptor src)
-        dst (normalize-type-descriptor dst)]
+        dst (normalize-type-descriptor dst)
+        src-meta (if-let [c (extract-class src)]
+                   {:tag c}
+                   {})
+        dst-meta (if-let [c (extract-class dst)]
+                   {:tag c}
+                   {})]
     `(swap! src->dst->transfer assoc-in [~src ~dst]
-       (fn [~(with-meta (first params) {:tag src})
-            ~(with-meta (second params) {:tag dst})
+       (fn [~(with-meta (first params) src-meta)
+            ~(with-meta (second params) dst-meta)
             ~(if-let [options (get params 2)] options (gensym "options"))]
          ~@body))))
 
