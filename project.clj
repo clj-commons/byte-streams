@@ -9,7 +9,7 @@
                                     :sign-releases false}]]
   :dependencies [[primitive-math "0.1.6"]
                  [clj-tuple "0.2.2"]
-                 [manifold "0.1.8"]]
+                 [manifold "0.1.9"]]
   :profiles {:dev {:dependencies [[org.clojure/clojure "1.10.1"]
                                   [org.clojure/test.check "1.1.0"]
                                   [rhizome "0.2.9"]
