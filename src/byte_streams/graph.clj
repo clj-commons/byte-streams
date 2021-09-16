@@ -7,6 +7,8 @@
      [utils :as u :refer [defprotocol+ defrecord+ deftype+]]
      [protocols :as p]])
   (:import
+    [java.lang
+     Comparable]
     [java.util.concurrent
      ConcurrentHashMap]
     [java.util
@@ -39,7 +41,16 @@
       (hash wrapper)
       (hash type)))
   (toString [this]
-    (pr-str (pprint-type this))))
+    (pr-str (pprint-type this)))
+
+  Comparable
+  (compareTo [_ x]
+    (if (and
+         (instance? Type x)
+         (= wrapper (.wrapper ^Type x))
+         (= type (.type ^Type x)))
+      0
+      -1)))
 
 (defn pprint-type [^Type x]
   (if-let [wrapper (.wrapper x)]
