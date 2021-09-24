@@ -8,17 +8,17 @@ Java has a lot of different ways to represent a stream of bytes.  Depending on t
 
 This library is a Rosetta stone for all the byte representations Java has to offer, and gives you the freedom to forget all the APIs you never wanted to know in the first place.  Complete documentation can be found [here](http://aleph.io/codox/byte-streams/).
 
-### usage
+### Usage
 
-```clj
 [byte-streams "0.2.4"]
+```clojure
 ```
 
-### converting types
+### Converting types
 
 To convert one byte representation to another, use `byte-streams/convert`:
 
-```clj
+```clojure
 byte-streams> (convert "abcd" java.nio.ByteBuffer)
 #<HeapByteBuffer java.nio.HeapByteBuffer[pos=0 lim=4 cap=4]>
 byte-streams> (convert *1 String)
@@ -27,7 +27,7 @@ byte-streams> (convert *1 String)
 
 `(convert data to-type options?)` converts, if possible, the data from its current type to the destination type.  This destination type can either be a Java class or a Clojure protocol.  However, since there's no direct route from a string to a byte-buffer, under the covers `convert` is doing whatever it takes to get the desired type:
 
-```clj
+```clojure
 byte-streams> (conversion-path String java.nio.ByteBuffer)
 ([java.lang.String [B]
  [[B java.nio.ByteBuffer])
@@ -37,14 +37,14 @@ While we can't turn a string into a `ByteBuffer`, we can turn a string into a `b
 
 Every type can exist either by itself, or as a sequence.  For instance, we can create an `InputStream` representing an infinite number of repeated strings:
 
-```clj
+```clojure
 byte-stream> (to-input-stream (repeat "hello"))
 #<InputStream byte_streams.InputStream@3962a02c>
 ```
 
 And then we can turn that into a lazy sequence of `ByteBuffers`:
 
-```clj
+```clojure
 byte-streams> (take 2
                 (convert *1
                   (seq-of java.nio.ByteBuffer)
@@ -61,11 +61,11 @@ Notice that we describe a sequence of a type as `(seq-of type)`, and that we've 
 
 To create a [Manifold stream](https://github.com/ztellman/manifold), use `(stream-of type)`.  To convert a core.async channel, convert it using `manifold.stream/->source`.
 
-### custom conversions
+### Custom conversions
 
 While there are conversions defined for all common byte types, this can be extended to other libraries via `byte-streams/def-conversion`:
 
-```clj
+```clojure
 ;; a conversion from byte-buffers to my-byte-representation
 (def-conversion [ByteBuffer MyByteRepresentation]
   [buf options]
@@ -77,11 +77,11 @@ While there are conversions defined for all common byte types, this can be exten
 
 This mechanism can even be used for types unrelated to byte streams, if you're feeling adventurous.
 
-### transfers
+### Transfers
 
 Simple conversions are useful, but sometimes we'll need to do more than just keep the bytes in memory.  When you need to write bytes to a file, network socket, or other endpoints, you can use `byte-streams/transfer`.
 
-```clj
+```clojure
 byte-streams> (def f (File. "/tmp/salutations"))
 #'byte-streams/f
 byte-streams> (transfer "hello" f {:append? false})
@@ -92,17 +92,17 @@ byte-streams> (to-string f)
 
 `(transfer source sink options?)` allows you pipe anything that can produce bytes into anything that can receive bytes, using the most efficient mechanism available.  Custom transfer mechanisms can also be defined:
 
-```clj
+```clojure
 (def-transfer [InputStream MyByteSink]
   [stream sink options]
   (send-stream-to-my-sink stream sink))
 ```
 
-### some utilities
+### Some utilities
 
 `byte-streams/print-bytes` will print both hexadecimal and ascii representations of a collection of bytes:
 
-```clj
+```clojure
 byte-streams> (print-bytes (-> #'print-bytes meta :doc))
 50 72 69 6E 74 73 20 6F  75 74 20 74 68 65 20 62      Prints out the b
 79 74 65 73 20 69 6E 20  62 6F 74 68 20 68 65 78      ytes in both hex
@@ -113,7 +113,7 @@ byte-streams> (print-bytes (-> #'print-bytes meta :doc))
 
 `(byte-streams/compare-bytes a b)` will return a value which is positive if `a` is lexicographically first, zero if they're equal, and negative otherwise:
 
-```clj
+```clojure
 byte-streams> (compare-bytes "abc" "abd")
 -1
 ```
@@ -122,7 +122,7 @@ byte-streams> (compare-bytes "abc" "abd")
 
 `byte-streams/conversion-path` returns all the intermediate steps in transforming one type to another, if one exists:
 
-```clj
+```clojure
 ;; each element is a conversion tuple of to/from
 byte-streams> (conversion-path java.io.File String)
 ([java.io.File java.nio.channels.ReadableByteChannel]
@@ -136,19 +136,19 @@ nil
 
 `byte-streams/possible-conversions` returns a list of possible conversion targets for a type.
 
-```clj
+```clojure
 byte-streams> (possible-conversions String)
 (java.lang.String java.io.InputStream java.nio.DirectByteBuffer java.nio.ByteBuffer (seq-of java.nio.ByteBuffer) java.io.Reader java.nio.channels.ReadableByteChannel [B java.lang.CharSequence)
 ```
 
 `byte-streams/optimized-transfer?` returns true if there is an optimized transfer method for two types:
 
-```clj
+```clojure
 byte-streams> (optimized-transfer? String java.io.File)
 true
 ```
 
-### license
+### License
 
 Copyright © 2014 Zachary Tellman
 
