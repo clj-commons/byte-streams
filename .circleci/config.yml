@@ -61,7 +61,7 @@ jobs:
 
       - run: lein eastwood
 
- deploy:
+  deploy:
     docker:
       # specify the version you desire here
       - image: circleci/clojure:openjdk-8-lein-2.9.1
