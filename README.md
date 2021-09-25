@@ -10,8 +10,8 @@ This library is a Rosetta stone for all the byte representations Java has to off
 
 ### Usage
 
-[byte-streams "0.2.4"]
 ```clojure
+[byte-streams "0.2.5"]
 ```
 
 ### Converting types

@@ -1,4 +1,4 @@
-(defproject clj-commons/byte-streams (or (System/getenv "version") "0.2.5-alpha")
+(defproject clj-commons/byte-streams (or (System/getenv "version") "0.2.5")
   :description "A simple way to handle the menagerie of Java byte representations."
   :license {:name "MIT License"
             :url "http://opensource.org/licenses/MIT"}
