@@ -1,5 +1,5 @@
 [![Clojars Project](https://img.shields.io/clojars/v/org.clj-commons/byte-streams.svg)](https://clojars.org/org.clj-commons/byte-streams)
-[![cljdoc badge](https://cljdoc.org/badge/byte-streams)](https://cljdoc.org/d/byte-streams)
+[![cljdoc badge](https://cljdoc.org/badge/org.clj-commons/byte-streams)](https://cljdoc.org/d/org.clj-commons/byte-streams)
 [![CircleCI](https://circleci.com/gh/clj-commons/byte-streams.svg?style=svg)](https://circleci.com/gh/clj-commons/byte-streams)
 
 ![](docs/header.jpg)
