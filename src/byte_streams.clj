@@ -57,16 +57,16 @@
 (defonce inverse-conversions (atom (g/conversion-graph)))
 (defonce src->dst->transfer (atom nil))
 
-(def ^:private ^:const byte-array (class (Utils/byteArray 0)))
+(def ^:private ^:const byte-array-type (class (Utils/byteArray 0)))
 
 (defn seq-of [x]
-  (g/type 'seq (if (identical? bytes x) byte-array x)))
+  (g/type 'seq (if (identical? bytes x) byte-array-type x)))
 
 (defn stream-of [x]
-  (g/type 'stream (if (identical? bytes x) byte-array x)))
+  (g/type 'stream (if (identical? bytes x) byte-array-type x)))
 
 (defn vector-of [x]
-  (g/type 'vector (if (identical? bytes x) byte-array x)))
+  (g/type 'vector (if (identical? bytes x) byte-array-type x)))
 
 (defn type-descriptor
   "Returns a descriptor of the type of the given instance."
@@ -77,7 +77,7 @@
     (g/type ::nil)
 
     (identical? bytes x)
-    (g/type byte-array)
+    (g/type byte-array-type)
 
     (vector? x)
     (vector-of (.type ^Type (type-descriptor (first x))))
@@ -97,7 +97,7 @@
     x
 
     (or (= 'bytes x) (= bytes x))
-    (g/type byte-array)
+    (g/type byte-array-type)
 
     :else
     (g/type (eval x))))
@@ -168,18 +168,23 @@
 
 (defn convert
   "Converts `x`, if possible, into type `dst`, which can be either a class or protocol.  If no such conversion
-   is possible, an IllegalArgumentException is thrown.  If `x` is a stream, then the `src` type must be explicitly specified.
+   is possible, an IllegalArgumentException is thrown.  If `x` is a stream, then the `src` type must be explicitly
+   specified.
 
    `options` is a map, whose available settings depend on what sort of transform is being performed:
 
-   `chunk-size` - if a stream is being transformed into a sequence of discrete chunks, `:chunk-size` describes the
-                  size of the chunks, which default to 4096 bytes.
+   `chunk-size`  - if a stream is being transformed into a sequence of discrete chunks, `:chunk-size` describes the
+                   size of the chunks, which default to 4096 bytes.
 
-   `encoding`   - if a string is being encoded or decoded, `:encoding` describes the charset that is used, which
-                  defaults to 'UTF-8'
+   `encoding`    - if a string is being encoded or decoded, `:encoding` describes the charset that is used, which
+                   defaults to 'UTF-8'
 
-   `direct?`    - if a byte-buffer is being allocated, `:direct?` describes whether it should be a direct buffer,
-                  defaulting to false"
+   `direct?`     - if a byte-buffer is being allocated, `:direct?` describes whether it should be a direct buffer,
+                   defaulting to false
+   `source-type` - overrides input type detection, required to convert a stream
+
+   (NB: if you need to convert a stream to a seq, or vice versa, but not the underlying byte type, you want
+   Manifold's `stream->seq` and `->source` instead)"
   ([x dst]
      (convert x dst nil))
   ([x dst options]
@@ -188,7 +193,7 @@
            ^Type
            src (g/type
                  (or source-type
-                   (type-descriptor x)))
+                     (type-descriptor x)))
            wrapper (.wrapper src)]
 
        (cond
@@ -465,7 +470,7 @@
   (Channels/newChannel input-stream))
 
 ;; string => byte-array
-(def-conversion ^{:cost 2} [String byte-array]
+(def-conversion ^{:cost 2} [String byte-array-type]
   [s {:keys [encoding] :or {encoding "UTF-8"}}]
   (.getBytes s ^String (name encoding)))
 
@@ -507,7 +512,7 @@
           (.close out))))
     in))
 
-(def-conversion ^{:cost 1.5} [InputStream byte-array]
+(def-conversion ^{:cost 1.5} [InputStream byte-array-type]
   [in options]
   (let [out (ByteArrayOutputStream. (p/max 64 (.available in)))
         buf (Utils/byteArray 16384)]
@@ -519,11 +524,11 @@
     (.toByteArray out)))
 
 #_(let [ary (Utils/byteArray 0)]
-  (def-conversion ^{:cost 0} [::nil byte-array]
+  (def-conversion ^{:cost 0} [::nil byte-array-type]
     [src options]
     ary))
 
-(def-conversion ^{:cost 2} [#'proto/ByteSource byte-array]
+(def-conversion ^{:cost 2} [#'proto/ByteSource byte-array-type]
   [src options]
   (let [os (ByteArrayOutputStream.)]
     (transfer src os)
@@ -673,7 +678,7 @@
   OutputStream
   (send-bytes! [this b _]
     (let [^OutputStream os this]
-      (.write os ^bytes (convert b byte-array))))
+      (.write os ^bytes (convert b byte-array-type))))
 
   WritableByteChannel
   (send-bytes! [this b _]
@@ -766,7 +771,7 @@
   ([x options]
      (condp instance? x
        ByteBuffer x
-       byte-array (ByteBuffer/wrap x)
+       byte-array-type (ByteBuffer/wrap x)
        String (ByteBuffer/wrap (.getBytes ^String x (name (get options :encoding "UTF-8"))))
        (convert x ByteBuffer options))))
 
@@ -783,16 +788,16 @@
      (to-byte-array x nil))
   ([x options]
      (condp instance? x
-       byte-array x
+       byte-array-type x
        String (.getBytes ^String x (name (get options :encoding "UTF-8")))
-       (convert x byte-array options))))
+       (convert x byte-array-type options))))
 
 (defn to-byte-arrays
   "Converts the object to a byte-array."
   ([x]
      (to-byte-array x nil))
   ([x options]
-     (convert x (seq-of byte-array) options)))
+     (convert x (seq-of byte-array-type) options)))
 
 (defn ^InputStream to-input-stream
   "Converts the object to a `java.io.InputStream`."
@@ -800,7 +805,7 @@
      (to-input-stream x nil))
   ([x options]
      (condp instance? x
-       byte-array (ByteArrayInputStream. x)
+       byte-array-type (ByteArrayInputStream. x)
        ByteBuffer (ByteBufferInputStream. x)
        (convert x InputStream options))))
 
@@ -843,7 +848,7 @@
      (let [encoding (get options :encoding "UTF-8")]
        (condp instance? x
          String x
-         byte-array (String. ^"[B" x ^String (name encoding))
+         byte-array-type (String. ^"[B" x ^String (name encoding))
          (convert x String options)))))
 
 (defn to-reader
@@ -934,11 +939,11 @@
   ^long [a b]
   (if (and
         (or
-          (instance? byte-array a)
+          (instance? byte-array-type a)
           (instance? ByteBuffer a)
           (instance? String a))
         (or
-          (instance? byte-array b)
+          (instance? byte-array-type b)
           (instance? ByteBuffer b)
           (instance? String b)))
     (cmp-bufs (to-byte-buffer a) (to-byte-buffer b))
@@ -960,3 +965,56 @@
   "Returns true if the two byte streams are equivalent."
   [a b]
   (p/== 0 (compare-bytes a b)))
+
+
+
+(comment
+  (require '[manifold.stream :as ms])
+
+  (def content
+    (doto (ms/stream)
+      (ms/put! (clojure.core/byte-array 5))
+      (ms/close!)))
+
+  (conversion-path (stream-of bytes) (seq-of bytes))        ; => ([(stream-of [B) (seq-of [B)])
+
+  (convert content (seq-of bytes))  ; doesn't work
+  (= content (convert content (seq-of bytes)))
+
+  (convert content (seq-of bytes) {:source-type (stream-of bytes)})  ; works
+  (= content (convert content (seq-of bytes) {:source-type (stream-of bytes)}))
+
+  (convert content (seq-of bytes) {:source-type (stream-of nil)})  ; doesn't work
+  (= content (convert content (seq-of bytes) {:source-type (stream-of nil)}))
+
+  (convert content (seq-of String)) ; also doesn't work
+  (= content (convert content (seq-of String)))
+
+  (convert content (seq-of java.nio.ByteBuffer)) ; this works
+  (= content (convert content (seq-of java.nio.ByteBuffer)))
+
+
+
+  (let [content (doto (ms/stream)
+                  (ms/put! (clojure.core/byte-array 5))
+                  (ms/close!))]
+    (convert content (seq-of bytes))  ; no
+    #_ (convert content (seq-of bytes) {:source-type (stream-of bytes)}) ; yes
+    #_(convert content (seq-of bytes) {:source-type (stream-of nil)}) ; no
+    )
+
+
+  (let [content (doto (ms/stream)
+                  (ms/put! (clojure.core/byte-array 5))
+                  (ms/close!))]
+    (convert content (seq-of String)) ; also doesn't work
+    (= content (convert content (seq-of String))))
+
+  (let [content (doto (ms/stream)
+                  (ms/put! (clojure.core/byte-array 5))
+                  (ms/close!))]
+    (convert content (seq-of java.nio.ByteBuffer)) ; this works
+    (= content (convert content (seq-of java.nio.ByteBuffer))))
+
+
+  )

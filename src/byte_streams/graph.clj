@@ -1,5 +1,5 @@
 (ns byte-streams.graph
-  (:refer-clojure :exclude [vector type byte-array])
+  (:refer-clojure :exclude [vector type])
   (:require
     [clj-tuple :refer [vector]]
     [manifold.stream :as s]
@@ -7,13 +7,9 @@
      [utils :as u :refer [defprotocol+ defrecord+ deftype+]]
      [protocols :as p]])
   (:import
-    [java.util.concurrent
-     ConcurrentHashMap]
     [java.util
      LinkedList
      PriorityQueue]))
-
-(def byte-array (class (clojure.core/byte-array 0)))
 
 (declare pprint-type)
 
@@ -260,7 +256,7 @@
                          x
                          fns)]
             (if-let [close-fn (when-not (or (p/closeable? result)
-                                          (.isEmpty close-fns))
+                                            (.isEmpty close-fns))
                                 #(loop []
                                    (when-let [f (.poll close-fns)]
                                      (f)

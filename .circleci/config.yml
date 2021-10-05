@@ -7,13 +7,20 @@ version: 2.1
 workflows:
   build-deploy:
     jobs:
-      - build
+      - build:
+          filters:
+            tags:
+              only: /.*/
 
       - deploy:
           requires:
             - build
+          filters:
+            tags:
+              only: /Release-.*/
           context:
             - CLOJARS_DEPLOY
+
 jobs:
   build:
     docker:
@@ -80,15 +87,45 @@ jobs:
             # fallback to using the latest cache if no exact match is found
             - v1-dependencies-
 
+      # Download and cache dependencies
+      - restore_cache:
+          keys:
+            - v1-dependencies-{{ checksum "project.clj" }}
+            # fallback to using the latest cache if no exact match is found
+            - v1-dependencies-
+
       - run:
          name: Install babashka
-         command: bash <(curl -s https://raw.githubusercontent.com/borkdude/babashka/master/install) --dir . --download-dir .
-      - run: lein with-profile ci deps
+         command: |
+           curl -s https://raw.githubusercontent.com/borkdude/babashka/master/install -o install.sh
+           sudo bash install.sh
+           rm install.sh
+      - run:
+          name: Install deployment-script
+          command: |
+            curl -s https://raw.githubusercontent.com/clj-commons/infra/main/deployment/circle-maybe-deploy.bb -o circle-maybe-deploy.bb
+            chmod a+x circle-maybe-deploy.bb
+      - run: lein deps
 
+      - run:
+          name: Setup GPG signing key
+          command: |
+            GNUPGHOME="$HOME/.gnupg"
+            export GNUPGHOME
+            mkdir -p "$GNUPGHOME"
+            chmod 0700 "$GNUPGHOME"
+              echo "$GPG_KEY" \
+               | base64 --decode --ignore-garbage \
+               | gpg --batch --allow-secret-key-import --import
+               gpg --keyid-format LONG --list-secret-keys
       - save_cache:
           paths:
             - ~/.m2
           key: v1-dependencies-{{ checksum "project.clj" }}
       - run:
          name: Deploy
-         command: .circleci/maybe-deploy.bb lein with-profile ci deploy clojars
+         command: |
+           GPG_TTY=$(tty)
+           export GPG_TTY
+           echo $GPG_TTY
+           ./circle-maybe-deploy.bb lein with-profile ci deploy clojars

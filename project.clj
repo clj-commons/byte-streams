@@ -1,5 +1,5 @@
-(defproject clj-commons/byte-streams (or (System/getenv "version") "0.2.5-alpha")
-  :description "A simple way to handle the menagerie of Java byte represenations."
+(defproject org.clj-commons/byte-streams (or (System/getenv "PROJECT_VERSION") "0.2.5")
+  :description "A simple way to handle the menagerie of Java byte representations."
   :license {:name "MIT License"
             :url "http://opensource.org/licenses/MIT"}
 
@@ -9,12 +9,13 @@
                                     :sign-releases false}]]
   :dependencies [[primitive-math "0.1.6"]
                  [clj-tuple "0.2.2"]
-                 [manifold "0.1.8"]
+                 [manifold "0.1.9"]
                  [org.clojure/core.memoize "1.0.250"]]
-  :profiles {:dev {:dependencies [[org.clojure/clojure "1.10.1"]
+  :profiles {:dev {:dependencies [[org.clojure/clojure "1.10.3"]
                                   [org.clojure/test.check "1.1.0"]
                                   [rhizome "0.2.9"]
-                                  [codox-md "0.2.0" :exclusions [org.clojure/clojure]]]}
+                                  [codox-md "0.2.0" :exclusions [org.clojure/clojure]]
+                                  [criterium "0.4.6"]]}
              :ci {:javac-options ["-target" "1.8" "-source" "1.8"]
                   :dependencies [[org.clojure/clojure "1.10.1"]
                                  [org.clojure/test.check "1.1.0"]

@@ -1,0 +1,20 @@
+== Changes
+
+=== 0.2.5
+
+* Add CircleCI support, remove Travis
+* Add basic clj-kondo linting hints
+* Bring under clj-commons
+* Minor docstring changes for clarity
+* Fix Markdown code block language string
+* Bumped up some deps. In particular, Manifold dep upgraded to 0.1.9
+* Fix incorrect tag metadata emission
+* Update some variable names for clarity
+* Fix reflection warnings
+* Fix for compare-bytes bug
+
+Contributions by Erik Assum, Matthew Davidson, Andy Fingerhut, Akshay Gollapalli, Dominic Pearson, Zach Tellman, and vemv.
+
+=== < 0.2.5-alpha2
+
+See git history.
