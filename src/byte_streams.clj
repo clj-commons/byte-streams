@@ -144,19 +144,19 @@
 ;;; convert
 
 (def ^:private converter
-  (fast-memoize
+  (memoize
     (fn [src dst]
       (g/conversion-fn @conversions src dst))))
 
 (declare convert)
 
 (def ^:private seq-converter
-  (fast-memoize
+  (memoize
     (fn [dst]
       (g/seq-conversion-fn @conversions convert 'seq dst))))
 
 (def ^:private stream-converter
-  (fast-memoize
+  (memoize
     (fn [dst]
       (g/seq-conversion-fn @conversions convert 'stream dst))))
 
@@ -233,7 +233,7 @@
       (filter pred)
       (map g/pprint-type))))
 
-(let [memoized-cost (fast-memoize
+(let [memoized-cost (memoize
                       (fn [src dst]
                         (if-let [path (g/conversion-path @conversions src dst)]
                           (:cost path)
@@ -253,7 +253,7 @@
       (recur))))
 
 (def ^:private transfer-fn
-  (fast-memoize
+  (memoize
     (fn this [^Type src ^Type dst]
       (let [converter-fn (cond
                            (nil? (.wrapper src))
