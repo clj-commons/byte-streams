@@ -8,8 +8,7 @@
      [graph :as g]
      [protocols :as proto]
      [pushback-stream :as ps]
-     [char-sequence :as cs]
-     [utils :refer (fast-memoize)]]
+     [char-sequence :as cs]]
     [clojure.java.io :as io]
     [primitive-math :as p])
   (:import

@@ -168,7 +168,7 @@
     (+ (.cost p) (.cost c))))
 
 (def conversion-path
-  (u/fast-memoize
+  (memoize
     (fn [g src dst]
       (let [path (ConversionPath. [] [] #{src} 0)]
         (if (assignable? src dst)
