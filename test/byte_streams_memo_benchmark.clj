@@ -2,8 +2,7 @@
   (:require [metrics.core :refer [new-registry]]
             [metrics.timers :as mt]
             [byte-streams.utils :refer (fast-memoize)]
-            ;; including the contrib memoize for completeness
-            #_[clojure.core.memoize :as memo]))
+            [clojure.core.memoize :as memo]))
 
 (defn bench-memo [f]
   (let [n 500
