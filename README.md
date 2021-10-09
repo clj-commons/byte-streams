@@ -10,8 +10,14 @@ This library is a Rosetta stone for all the byte representations Java has to off
 
 ### Usage
 
+Leiningen:
 ```clojure
-[byte-streams "0.2.5"]
+[org.clj-commons/byte-streams "0.2.8"]
+```
+
+deps.edn:
+```clojure
+org.clj-commons/byte-streams {:mvn/version "0.2.8"}
 ```
 
 ### Converting types
