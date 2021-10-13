@@ -1,8 +1,7 @@
 (ns byte-streams-memo-benchmark
   (:require [metrics.core :refer [new-registry]]
             [metrics.timers :as mt]
-            [byte-streams.utils :refer (fast-memoize)]
-            [clojure.core.memoize :as memo]))
+            [byte-streams.utils :refer (fast-memoize)]))
 
 (defn bench-memo [f]
   (let [n 500
