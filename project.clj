@@ -14,8 +14,7 @@
                                   [org.clojure/test.check "1.1.0"]
                                   [rhizome "0.2.9"]
                                   [codox-md "0.2.0" :exclusions [org.clojure/clojure]]
-                                  [criterium "0.4.6"]
-                                  [metrics-clojure "2.10.0"]]}
+                                  [criterium "0.4.6"]]}
              :ci {:javac-options ["-target" "1.8" "-source" "1.8"]
                   :dependencies [[org.clojure/clojure "1.10.1"]
                                  [org.clojure/test.check "1.1.0"]
