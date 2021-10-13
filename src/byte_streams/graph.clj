@@ -4,7 +4,7 @@
     [clj-tuple :refer [vector]]
     [manifold.stream :as s]
     [byte-streams
-     [utils :as u :refer [defprotocol+ defrecord+ deftype+]]
+     [utils :refer [defprotocol+ defrecord+ deftype+]]
      [protocols :as p]])
   (:import
     [java.util
