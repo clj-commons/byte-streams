@@ -1,5 +1,10 @@
 == Changes
 
+=== 0.2.6 - 0.2.8
+
+* Update group ID
+* Internal deployment changes
+
 === 0.2.5
 
 * Add CircleCI support, remove Travis
