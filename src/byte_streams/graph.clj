@@ -4,7 +4,7 @@
     [clj-tuple :refer [vector]]
     [manifold.stream :as s]
     [byte-streams
-     [utils :as u :refer [defprotocol+ defrecord+ deftype+]]
+     [utils :refer [defprotocol+ defrecord+ deftype+]]
      [protocols :as p]])
   (:import
     [java.util
@@ -168,7 +168,7 @@
     (+ (.cost p) (.cost c))))
 
 (def conversion-path
-  (u/fast-memoize
+  (memoize
     (fn [g src dst]
       (let [path (ConversionPath. [] [] #{src} 0)]
         (if (assignable? src dst)
