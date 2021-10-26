@@ -1,9 +1,17 @@
 == Changes
 
+=== 0.2.9
+
+* Removed use of fast-memoize
+
+Contributions by Joshua Degagné
+
 === 0.2.6 - 0.2.8
 
 * Update group ID
 * Internal deployment changes
+
+Contributions by Erik Assum
 
 === 0.2.5
 
