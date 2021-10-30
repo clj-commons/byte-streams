@@ -129,7 +129,7 @@ byte-streams> (compare-bytes "abc" "abd")
 `byte-streams/conversion-path` returns all the intermediate steps in transforming one type to another, if one exists:
 
 ```clojure
-;; each element is a conversion tuple of to/from
+;; each element is a conversion pair of to/from
 byte-streams> (conversion-path java.io.File String)
 ([java.io.File java.nio.channels.ReadableByteChannel]
  [#'byte-streams/ByteSource java.lang.CharSequence]

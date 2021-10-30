@@ -1,7 +1,6 @@
 (ns byte-streams.graph
-  (:refer-clojure :exclude [vector type])
+  (:refer-clojure :exclude [type])
   (:require
-    [clj-tuple :refer [vector]]
     [manifold.stream :as s]
     [byte-streams
      [utils :refer [defprotocol+ defrecord+ deftype+]]
