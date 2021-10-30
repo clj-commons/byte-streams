@@ -1,5 +1,11 @@
 == Changes
 
+=== 0.2.10
+
+* Removed use of clj-tuple
+
+Contributions by Matthew Davidson
+
 === 0.2.9
 
 * Removed use of fast-memoize
