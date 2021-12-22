@@ -1,8 +1,6 @@
-(ns ^{;; single segment namespace is deprecated, use clj-commons.byte-streams.protocols
-      :deprecated true}
-  byte-streams.protocols
+(ns clj-commons.byte-streams.protocols
   (:require
-   [byte-streams.utils :refer [defprotocol+]])
+   [clj-commons.byte-streams.utils :refer [defprotocol+]])
   (:import
     [java.util.concurrent
      ConcurrentHashMap]))

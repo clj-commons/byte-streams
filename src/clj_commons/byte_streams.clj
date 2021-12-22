@@ -1,12 +1,10 @@
-(ns ^{;; single segment namespace is deprecated, use clj-commons.byte-streams
-      :deprecated true}
-  byte-streams
+(ns clj-commons.byte-streams
   (:refer-clojure :exclude [byte-array vector-of])
   (:require
     [manifold
      [stream :as s]
      [deferred :as d]]
-    [byte-streams
+    [clj-commons.byte-streams
      [graph :as g]
      [protocols :as proto]
      [pushback-stream :as ps]
@@ -14,10 +12,10 @@
     [clojure.java.io :as io]
     [primitive-math :as p])
   (:import
-    [byte_streams
+    [clj_commons.byte_streams
      Utils
      ByteBufferInputStream]
-    [byte_streams.graph
+    [clj_commons.byte_streams.graph
      Type]
     [java.nio
      ByteBuffer

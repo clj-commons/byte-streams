@@ -1,6 +1,4 @@
-(ns ^{;; single segment namespace is deprecated, use clj-commons.byte-streams.utils
-      :deprecated true}
-  byte-streams.utils)
+(ns clj-commons.byte-streams.utils)
 
 (defmacro defprotocol+ [name & body]
   (when-not (resolve name)

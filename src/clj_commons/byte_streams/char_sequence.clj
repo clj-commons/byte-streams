@@ -1,6 +1,4 @@
-(ns ^{;; single segment namespace is deprecated, use clj-commons.byte-streams.char-sequence
-      :deprecated true}
-  byte-streams.char-sequence
+(ns clj-commons.byte-streams.char-sequence
   (:refer-clojure :exclude [flush])
   (:import
     [java.util.concurrent.locks

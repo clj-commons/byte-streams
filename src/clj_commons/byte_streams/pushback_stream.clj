@@ -1,10 +1,8 @@
-(ns ^{;; single segment namespace is deprecated, use clj-commons.byte-streams.byte-streams.pushback-stream
-      :deprecated true}
-  byte-streams.pushback-stream
+(ns clj-commons.byte-streams.pushback-stream
   (:refer-clojure :exclude [take])
   (:require
     [primitive-math :as p]
-    [byte-streams.utils :refer [doit definterface+ deftype+]]
+    [clj-commons.byte-streams.utils :refer [doit definterface+ deftype+]]
     [manifold
      [utils :as u]
      [stream :as s]
@@ -13,7 +11,7 @@
   (:import
     [java.nio
      ByteBuffer]
-    [byte_streams
+    [clj_commons.byte_streams
      InputStream
      InputStream$Streamable]
     [java.util
@@ -275,7 +273,7 @@
     false
     (LinkedList.)))
 
-(def classname "byte_streams.pushback_stream.PushbackStream")
+(def classname "clj_commons.byte_streams.pushback_stream.PushbackStream")
 
 (definline put-array
   [p ary offset length]

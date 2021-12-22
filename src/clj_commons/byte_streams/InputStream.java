@@ -1,11 +1,7 @@
-package byte_streams;
+package clj_commons.byte_streams;
 
 import java.io.IOException;
 
-/**
- * Deprecated, use clj_commons.byte_streams.InputStream.
- */
-@Deprecated()
 public class InputStream extends java.io.InputStream {
 
     public interface Streamable {

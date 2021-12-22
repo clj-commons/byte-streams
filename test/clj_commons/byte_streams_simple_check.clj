@@ -1,7 +1,7 @@
-(ns byte-streams-simple-check
+(ns clj-commons.byte-streams-simple-check
   (:require
     [clojure.test :refer :all]
-    [byte-streams :as bs]
+    [clj-commons.byte-streams :as bs]
     [clojure.test.check.generators :as gen]
     [clojure.test.check.properties :as prop]
     [clojure.test.check.clojure-test :as ct :refer (defspec)]))

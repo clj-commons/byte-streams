@@ -1,13 +1,9 @@
-package byte_streams;
+package clj_commons.byte_streams;
 
 import java.io.InputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
-/**
- * Deprecated, use clj_commons.byte_streams.ByteBufferInputStream.
- */
-@Deprecated()
 public class ByteBufferInputStream extends InputStream {
 
     private ByteBuffer _buf;

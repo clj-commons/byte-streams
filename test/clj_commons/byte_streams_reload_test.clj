@@ -1,4 +1,4 @@
-(ns byte-streams-reload-test
+(ns clj-commons.byte-streams-reload-test
   (:require
    [clojure.test :refer :all]))
 

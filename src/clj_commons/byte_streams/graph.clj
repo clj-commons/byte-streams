@@ -1,10 +1,8 @@
-(ns ^{;; single segment namespace is deprecated, use clj-commons.byte-streams.graph
-      :deprecated true}
-  byte-streams.graph
+(ns clj-commons.byte-streams.graph
   (:refer-clojure :exclude [type])
   (:require
     [manifold.stream :as s]
-    [byte-streams
+    [clj-commons.byte-streams
      [utils :refer [defprotocol+ defrecord+ deftype+]]
      [protocols :as p]])
   (:import

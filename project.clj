@@ -1,4 +1,4 @@
-(defproject org.clj-commons/byte-streams (or (System/getenv "PROJECT_VERSION") "0.2.10")
+(defproject org.clj-commons/byte-streams (or (System/getenv "PROJECT_VERSION") "0.2.11")
   :description "A simple way to handle the menagerie of Java byte representations."
   :license {:name "MIT License"
             :url "http://opensource.org/licenses/MIT"}
@@ -27,7 +27,7 @@
   :cljfmt {:indents {#".*" [[:inner 0]]}}
   :codox {:source-uri "https://github.com/clj-commons/byte-streams/blob/master/{filepath}#L{line}"
           :metadata {:doc/format :markdown}
-          :namespaces [byte-streams]}
+          :namespaces [clj-commons.byte-streams]}
   :global-vars {*warn-on-reflection* true}
   :java-source-paths ["src"]
   :jvm-opts ^:replace ["-server" "-Xmx4g"])

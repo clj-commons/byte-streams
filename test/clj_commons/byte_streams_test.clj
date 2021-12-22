@@ -1,8 +1,8 @@
-(ns byte-streams-test
+(ns clj-commons.byte-streams-test
   (:require
-    [byte-streams :refer [bytes= compare-bytes conversion-path convert dev-null possible-conversions seq-of stream-of to-byte-array to-byte-buffer to-byte-buffers to-input-stream to-string transfer vector-of]]
+    [clj-commons.byte-streams :refer [bytes= compare-bytes conversion-path convert dev-null possible-conversions seq-of stream-of to-byte-array to-byte-buffer to-byte-buffers to-input-stream to-string transfer vector-of]]
     [clojure.test :refer :all]
-    [byte-streams.char-sequence :as cs])
+    [clj-commons.byte-streams.char-sequence :as cs])
   (:refer-clojure
     :exclude [vector-of])
   (:import
