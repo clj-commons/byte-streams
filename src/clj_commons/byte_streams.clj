@@ -10,7 +10,7 @@
      [pushback-stream :as ps]
      [char-sequence :as cs]]
     [clojure.java.io :as io]
-    [primitive-math :as p])
+    [piotr-yuxuan.primitive-math :as p])
   (:import
     [clj_commons.byte_streams
      Utils

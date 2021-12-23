@@ -1,7 +1,7 @@
 (ns clj-commons.byte-streams.pushback-stream
   (:refer-clojure :exclude [take])
   (:require
-    [primitive-math :as p]
+    [piotr-yuxuan.primitive-math :as p]
     [clj-commons.byte-streams.utils :refer [doit definterface+ deftype+]]
     [manifold
      [utils :as u]
