@@ -1,6 +1,8 @@
 (ns
-  ^{:doc "DEPRECATED: moved to clj-commons.byte-streams.graph"
-    :deprecated "1.0.0"}
+  ^{:deprecated true
+    :doc "DEPRECATED: moved to clj-commons.byte-streams.graph"
+    :no-doc true
+    :superceded-by "clj-commons.byte-streams.graph"}
   byte-streams.graph
   (:refer-clojure :exclude [type])
   (:require

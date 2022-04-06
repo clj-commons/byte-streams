@@ -1,6 +1,8 @@
 (ns
-  ^{:doc "DEPRECATED: moved to clj-commons.byte-streams.pushback-stream"
-    :deprecated "1.0.0"}
+  ^{:deprecated true
+    :doc "DEPRECATED: moved to clj-commons.byte-streams.pushback-stream"
+    :no-doc true
+    :superceded-by "clj-commons.byte-streams.pushback-stream"}
   byte-streams.pushback-stream
   (:refer-clojure :exclude [take])
   (:require
