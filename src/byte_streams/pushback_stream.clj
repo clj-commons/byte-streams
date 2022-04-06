@@ -1,4 +1,7 @@
-(ns byte-streams.pushback-stream
+(ns
+  ^{:doc "DEPRECATED: moved to clj-commons.byte-streams.pushback-stream"
+    :deprecated "1.0.0"}
+  byte-streams.pushback-stream
   (:refer-clojure :exclude [take])
   (:require
     [primitive-math :as p]

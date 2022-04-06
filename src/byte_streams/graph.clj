@@ -1,4 +1,7 @@
-(ns byte-streams.graph
+(ns
+  ^{:doc "DEPRECATED: moved to clj-commons.byte-streams.graph"
+    :deprecated "1.0.0"}
+  byte-streams.graph
   (:refer-clojure :exclude [type])
   (:require
     [manifold.stream :as s]

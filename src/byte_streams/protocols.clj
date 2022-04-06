@@ -1,4 +1,7 @@
-(ns byte-streams.protocols
+(ns
+  ^{:doc "DEPRECATED: moved to clj-commons.byte-streams.protocols"
+    :deprecated "1.0.0"}
+  byte-streams.protocols
   (:require
    [byte-streams.utils :refer [defprotocol+]])
   (:import

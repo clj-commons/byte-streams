@@ -1,4 +1,7 @@
-(ns byte-streams
+(ns
+  ^{:doc "DEPRECATED: moved to clj-commons.byte-streams"
+    :deprecated "1.0.0"}
+  byte-streams
   (:refer-clojure :exclude [byte-array vector-of])
   (:require
     [manifold

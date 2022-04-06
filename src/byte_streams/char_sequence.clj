@@ -1,4 +1,7 @@
-(ns byte-streams.char-sequence
+(ns
+  ^{:doc "DEPRECATED: moved to clj-commons.byte-streams.char-sequence"
+    :deprecated "1.0.0"}
+  byte-streams.char-sequence
   (:refer-clojure :exclude [flush])
   (:import
     [java.util.concurrent.locks

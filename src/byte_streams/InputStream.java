@@ -2,6 +2,7 @@ package byte_streams;
 
 import java.io.IOException;
 
+@Deprecated
 public class InputStream extends java.io.InputStream {
 
     public interface Streamable {
