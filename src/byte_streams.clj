@@ -2,7 +2,7 @@
   ^{:deprecated true
     :doc "DEPRECATED: moved to clj-commons.byte-streams"
     :no-doc true
-    :superceded-by "clj-commons.byte-streams"}
+    :superseded-by "clj-commons.byte-streams"}
   byte-streams
   (:refer-clojure :exclude [byte-array vector-of])
   (:require

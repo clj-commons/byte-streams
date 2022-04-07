@@ -2,7 +2,7 @@
   ^{:deprecated true
     :doc "DEPRECATED: moved to clj-commons.byte-streams.protocols"
     :no-doc true
-    :superceded-by "clj-commons.byte-streams.protocols"}
+    :superseded-by "clj-commons.byte-streams.protocols"}
   byte-streams.protocols
   (:require
    [byte-streams.utils :refer [defprotocol+]])

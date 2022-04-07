@@ -2,7 +2,7 @@
   ^{:deprecated true
     :doc "DEPRECATED: moved to clj-commons.byte-streams.char-sequence"
     :no-doc true
-    :superceded-by "clj-commons.byte-streams.char-sequence"}
+    :superseded-by "clj-commons.byte-streams.char-sequence"}
   byte-streams.char-sequence
   (:refer-clojure :exclude [flush])
   (:import

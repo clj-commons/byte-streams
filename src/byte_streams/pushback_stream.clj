@@ -2,7 +2,7 @@
   ^{:deprecated true
     :doc "DEPRECATED: moved to clj-commons.byte-streams.pushback-stream"
     :no-doc true
-    :superceded-by "clj-commons.byte-streams.pushback-stream"}
+    :superseded-by "clj-commons.byte-streams.pushback-stream"}
   byte-streams.pushback-stream
   (:refer-clojure :exclude [take])
   (:require

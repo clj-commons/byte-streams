@@ -2,7 +2,7 @@
   ^{:deprecated true
     :doc "DEPRECATED: moved to clj-commons.byte-streams.utils"
     :no-doc true
-    :superceded-by "clj-commons.byte-streams.utils"}
+    :superseded-by "clj-commons.byte-streams.utils"}
   byte-streams.utils)
 
 (defmacro defprotocol+ [name & body]

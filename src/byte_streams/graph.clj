@@ -2,7 +2,7 @@
   ^{:deprecated true
     :doc "DEPRECATED: moved to clj-commons.byte-streams.graph"
     :no-doc true
-    :superceded-by "clj-commons.byte-streams.graph"}
+    :superseded-by "clj-commons.byte-streams.graph"}
   byte-streams.graph
   (:refer-clojure :exclude [type])
   (:require
