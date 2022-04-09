@@ -1,9 +1,4 @@
-(ns
-  ^{:deprecated true
-    :doc "DEPRECATED: moved to clj-commons.byte-streams.utils"
-    :no-doc true
-    :superseded-by "clj-commons.byte-streams.utils"}
-  byte-streams.utils)
+(ns clj-commons.byte-streams.utils)
 
 (defmacro defprotocol+ [name & body]
   (when-not (resolve name)

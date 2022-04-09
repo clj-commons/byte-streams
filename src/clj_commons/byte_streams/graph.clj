@@ -1,13 +1,8 @@
-(ns
-  ^{:deprecated true
-    :doc "DEPRECATED: moved to clj-commons.byte-streams.graph"
-    :no-doc true
-    :superseded-by "clj-commons.byte-streams.graph"}
-  byte-streams.graph
+(ns clj-commons.byte-streams.graph
   (:refer-clojure :exclude [type])
   (:require
     [manifold.stream :as s]
-    [byte-streams
+    [clj-commons.byte-streams
      [utils :refer [defprotocol+ defrecord+ deftype+]]
      [protocols :as p]])
   (:import

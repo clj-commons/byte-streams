@@ -1,11 +1,6 @@
-(ns
-  ^{:deprecated true
-    :doc "DEPRECATED: moved to clj-commons.byte-streams.protocols"
-    :no-doc true
-    :superseded-by "clj-commons.byte-streams.protocols"}
-  byte-streams.protocols
+(ns clj-commons.byte-streams.protocols
   (:require
-   [byte-streams.utils :refer [defprotocol+]])
+   [clj-commons.byte-streams.utils :refer [defprotocol+]])
   (:import
     [java.util.concurrent
      ConcurrentHashMap]))
