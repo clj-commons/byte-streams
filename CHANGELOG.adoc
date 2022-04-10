@@ -1,5 +1,12 @@
 == Changes
 
+=== 0.3.0
+
+* Copied code and tests to nested namespaces, deprecated top-level single-segment ns for Graal/clj-easy
+* Bumped Manifold dep to 0.2.3
+
+Contributions by skynet
+
 === 0.2.10
 
 * Removed use of clj-tuple
