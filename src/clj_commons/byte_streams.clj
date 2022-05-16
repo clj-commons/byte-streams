@@ -48,7 +48,8 @@
      Channels
      Pipe]
     [java.nio.channels.spi
-     AbstractSelectableChannel]))
+     AbstractSelectableChannel]
+    (java.nio.file StandardOpenOption)))
 
 ;;;
 
@@ -576,12 +577,22 @@
 ;; file => readable-channel
 (def-conversion ^{:cost 0} [File ReadableByteChannel]
   [file]
-  (.getChannel (FileInputStream. file)))
+  (-> file
+      (.toPath)
+      (FileChannel/open (into-array StandardOpenOption
+                                    [StandardOpenOption/READ]))))
 
 ;; file => writable-channel
 (def-conversion ^{:cost 0} [File WritableByteChannel]
   [file {:keys [append?] :or {append? true}}]
-  (.getChannel (FileOutputStream. file (boolean append?))))
+  (let [option-array (into-array StandardOpenOption
+                                 (cond-> [StandardOpenOption/CREATE
+                                          StandardOpenOption/WRITE]
+                                         append?
+                                         (conj StandardOpenOption/APPEND)))]
+    (-> file
+        (.toPath)
+        (FileChannel/open option-array))))
 
 (def-conversion ^{:cost 0} [File (seq-of ByteBuffer)]
   [file {:keys [chunk-size writable?] :or {chunk-size (int 2e9), writable? false}}]
