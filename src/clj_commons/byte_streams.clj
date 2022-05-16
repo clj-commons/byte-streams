@@ -587,24 +587,30 @@
   [file {:keys [chunk-size writable?] :or {chunk-size (int 2e9), writable? false}}]
   (let [^RandomAccessFile raf (RandomAccessFile. file (if writable? "rw" "r"))
         ^FileChannel fc (.getChannel raf)
+        close-fn (fn []
+                   (.close raf)
+                   (.close fc))
         buf-seq (fn buf-seq [offset]
-                  (when-not (<= (.size fc) offset)
-                    (let [remaining (- (.size fc) offset)]
+                  (when (and (.isOpen fc)
+                             (> (.size fc) offset))
+                    (let [remaining (- (.size fc) offset)
+                          close-after-reading? (<= remaining chunk-size)]
                       (lazy-seq
                         (cons
-                          (.map fc
-                            (if writable?
-                              FileChannel$MapMode/READ_WRITE
-                              FileChannel$MapMode/READ_ONLY)
-                            offset
-                            (min remaining chunk-size))
+                          (let [mbb (.map fc
+                                          (if writable?
+                                            FileChannel$MapMode/READ_WRITE
+                                            FileChannel$MapMode/READ_ONLY)
+                                          offset
+                                          (min remaining chunk-size))]
+                            (when close-after-reading?
+                              (close-fn))
+                            mbb)
                           (buf-seq (+ offset chunk-size)))))))]
     (g/closeable-seq
       (buf-seq 0)
       false
-      #(do
-         (.close raf)
-         (.close fc)))))
+      close-fn)))
 
 ;; output-stream => writable-channel
 (def-conversion ^{:cost 0} [OutputStream WritableByteChannel]

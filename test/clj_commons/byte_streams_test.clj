@@ -2,7 +2,9 @@
   (:require
     [clj-commons.byte-streams :refer [bytes= compare-bytes conversion-path convert dev-null possible-conversions seq-of stream-of to-byte-array to-byte-buffer to-byte-buffers to-input-stream to-string transfer vector-of]]
     [clojure.test :refer :all]
-    [clj-commons.byte-streams.char-sequence :as cs])
+    [clj-commons.byte-streams.char-sequence :as cs]
+    [clojure.java.io :as io]
+    [clj-commons.primitive-math :as p])
   (:refer-clojure
     :exclude [vector-of])
   (:import
@@ -143,3 +145,59 @@
         by (convert (byte-array [0x80 0x00 0x00 0x01]) java.nio.ByteBuffer)]
     (is (= [bx by] (sort compare-bytes [bx by])))
     (is (= [bx by] (sort compare-bytes [by bx])))))
+
+(defn- write-zeros-file
+  "Write out a file of nothing but zeros"
+  [size]
+  (let [f (doto (File/createTempFile "byte-streams-test-" nil)
+                (.deleteOnExit))
+        buf-size 64
+        zs (byte-array buf-size (byte 0))
+        num-bufs (int (quot size buf-size))
+        remainder (int (mod size buf-size))]
+    (with-open [os (io/output-stream f)]
+      (loop [cnt num-bufs]
+        (when (p/> cnt 0)
+          (.write os zs)
+          (recur (p/dec cnt))))
+      (when (pos? remainder)
+        (.write os (byte-array remainder (byte 0)))))
+    f))
+
+(defn- bb-stream-size
+  [s]
+  (reduce
+    (fn [sz ^ByteBuffer bb] (p/+ ^int sz (.limit bb)))
+    (int 0)
+    s))
+
+(deftest large-file
+  (testing "can read whole file"
+    (let [size (int 1e8)
+          chunk-size (p// size 10)
+          f (write-zeros-file size)]
+      (testing "from streams"
+        (testing "all at once"
+          (with-open [in (clojure.java.io/input-stream f)]
+            (is (== (bb-stream-size (convert in (seq-of ByteBuffer)))
+                    size))))
+        (testing "in chunks"
+          (with-open [in (clojure.java.io/input-stream f)]
+            (is (== (bb-stream-size (convert in
+                                             (seq-of ByteBuffer)
+                                             {:chunk-size chunk-size}))
+                    size)))))
+
+      (testing "from java.io.File"
+        (is (== (bb-stream-size (convert f (seq-of ByteBuffer)))
+                size))
+
+        (testing "partial read, then close"
+          (let [n 4
+                s (convert f (seq-of ByteBuffer) {:chunk-size chunk-size})
+                _ (nth s n)]
+            (.close s)
+            (is (some? (nth s n)))
+            (is (thrown? Exception
+                         (nth s (inc n))))))))))
+
