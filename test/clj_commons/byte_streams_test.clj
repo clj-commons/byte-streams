@@ -145,7 +145,7 @@
   "Write out a file of nothing but zeros"
   [size]
   (let [f (doto (File/createTempFile "byte-streams-test-" nil)
-                #_(.deleteOnExit))
+                (.deleteOnExit))
         buf-size 64
         zs (byte-array buf-size (byte 0))
         num-bufs (int (quot size buf-size))
