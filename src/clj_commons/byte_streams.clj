@@ -9,46 +9,39 @@
      [protocols :as proto]
      [pushback-stream :as ps]
      [char-sequence :as cs]]
-    [clojure.java.io :as io]
     [clj-commons.primitive-math :as p])
   (:import
-    [clj_commons.byte_streams
-     Utils
-     ByteBufferInputStream]
-    [clj_commons.byte_streams.graph
-     Type]
-    [java.nio
-     ByteBuffer
-     DirectByteBuffer]
-    [java.lang.reflect
-     Array]
-    [java.util.concurrent.atomic
-     AtomicBoolean]
-    [java.io
-     File
-     FileOutputStream
-     FileInputStream
-     ByteArrayInputStream
-     ByteArrayOutputStream
-     PipedOutputStream
-     PipedInputStream
-     DataInputStream
-     InputStream
-     OutputStream
-     IOException
-     RandomAccessFile
-     Reader
-     InputStreamReader
-     BufferedReader]
-    [java.nio.channels
-     ReadableByteChannel
-     WritableByteChannel
-     FileChannel
-     FileChannel$MapMode
-     Channels
-     Pipe]
-    [java.nio.channels.spi
-     AbstractSelectableChannel]
+    (clj_commons.byte_streams
+      Utils
+      ByteBufferInputStream)
+    (clj_commons.byte_streams.graph
+      Type)
+    (java.nio
+      ByteBuffer)
+    (java.lang.reflect
+      Array)
+    (java.io
+      File
+      ByteArrayInputStream
+      ByteArrayOutputStream
+      PipedOutputStream
+      PipedInputStream
+      DataInputStream
+      InputStream
+      OutputStream
+      IOException
+      Reader
+      BufferedReader
+      InputStreamReader)
+    (java.nio.channels
+      ReadableByteChannel
+      WritableByteChannel
+      FileChannel
+      FileChannel$MapMode
+      Channels
+      Pipe)
+    (java.nio.channels.spi
+      AbstractSelectableChannel)
     (java.nio.file StandardOpenOption)))
 
 ;;;
@@ -594,7 +587,9 @@
         (.toPath)
         (FileChannel/open option-array))))
 
-(def-conversion ^{:cost 0} [File (seq-of ByteBuffer)]
+;;
+(def-conversion ^{:cost 0
+                  :doc "Assumes the file size is static."} [File (seq-of ByteBuffer)]
   [file {:keys [chunk-size writable?] :or {chunk-size (int 2e9), writable? false}}]
   (let [option-array (into-array StandardOpenOption
                                  (cond-> [StandardOpenOption/READ]

@@ -2,13 +2,12 @@
   (:require
     [clj-commons.byte-streams :refer [bytes= compare-bytes conversion-path convert dev-null possible-conversions seq-of stream-of to-byte-array to-byte-buffer to-byte-buffers to-input-stream to-string transfer vector-of] :as bs]
     [clojure.test :refer :all]
-    [clj-commons.byte-streams.char-sequence :as cs]
     [clojure.java.io :as io]
     [clj-commons.primitive-math :as p])
   (:refer-clojure
     :exclude [vector-of])
   (:import
-    (java.io File)
+    (java.io File Closeable Reader)
     (java.nio ByteBuffer)
     (java.nio.channels WritableByteChannel ReadableByteChannel)
     (java.util Arrays)))
@@ -47,7 +46,7 @@
         (str (pr-str src) " -> " (pr-str dst)))))
 
   ;; make sure none of our intermediate representations are strings if our target isn't a string
-  (let [invalid-destinations (->> #{String CharSequence java.io.Reader}
+  (let [invalid-destinations (->> #{String CharSequence Reader}
                                (mapcat #(vector % (list 'seq-of %) (list 'stream-of %)))
                                set)
         pairwise-conversions (->> (class ary)
@@ -136,8 +135,8 @@
     (is (bytes= text-bytes (-> text-bytes (to-input-stream {:chunk-size 128}) to-string to-byte-array)))))
 
 (deftest compare-bytes-former-bug
-  (let [bx (convert (byte-array [0x00 0x00 0x00 0x01]) java.nio.ByteBuffer)
-        by (convert (byte-array [0x80 0x00 0x00 0x01]) java.nio.ByteBuffer)]
+  (let [bx (convert (byte-array [0x00 0x00 0x00 0x01]) ByteBuffer)
+        by (convert (byte-array [0x80 0x00 0x00 0x01]) ByteBuffer)]
     (is (= [bx by] (sort compare-bytes [bx by])))
     (is (= [bx by] (sort compare-bytes [by bx])))))
 
@@ -173,11 +172,11 @@
           f (write-zeros-file size)]
       (testing "from streams"
         (testing "all at once"
-          (with-open [in (clojure.java.io/input-stream f)]
+          (with-open [in (io/input-stream f)]
             (is (== (bb-stream-size (convert in (seq-of ByteBuffer)))
                     size))))
         (testing "in chunks"
-          (with-open [in (clojure.java.io/input-stream f)]
+          (with-open [in (io/input-stream f)]
             (is (== (bb-stream-size (convert in
                                              (seq-of ByteBuffer)
                                              {:chunk-size chunk-size}))
@@ -191,7 +190,7 @@
           (let [n 4
                 s (convert f (seq-of ByteBuffer) {:chunk-size chunk-size})
                 _ (nth s n)]
-            (.close s)
+            (.close ^Closeable s)
             (is (some? (nth s n)))
             (is (thrown? Exception
                          (nth s (inc n))))))))))
