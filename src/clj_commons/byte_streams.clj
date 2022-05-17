@@ -596,11 +596,15 @@
 
 (def-conversion ^{:cost 0} [File (seq-of ByteBuffer)]
   [file {:keys [chunk-size writable?] :or {chunk-size (int 2e9), writable? false}}]
-  (let [^RandomAccessFile raf (RandomAccessFile. file (if writable? "rw" "r"))
-        ^FileChannel fc (.getChannel raf)
-        close-fn (fn []
-                   (.close raf)
-                   (.close fc))
+  (let [option-array (into-array StandardOpenOption
+                                 (cond-> [StandardOpenOption/READ]
+                                         writable?
+                                         (conj StandardOpenOption/CREATE
+                                               StandardOpenOption/WRITE)))
+        ^FileChannel fc (-> file
+                            (.toPath)
+                            (FileChannel/open option-array))
+        close-fn #(.close fc)
         buf-seq (fn buf-seq [offset]
                   (when (and (.isOpen fc)
                              (> (.size fc) offset))
