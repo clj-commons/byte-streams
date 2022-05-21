@@ -188,7 +188,6 @@
                  (or source-type
                      (type-descriptor x)))
            wrapper (.wrapper src)]
-
        (cond
 
          (not (nil? (.type src)))
@@ -276,7 +275,6 @@
                             (remove nil?)
                             first)]
           (cond
-
             (and src' dst')
             (let [f (get-in @src->dst->transfer [src' dst'])]
               (fn [source sink options]
@@ -284,20 +282,19 @@
                       sink' (convert sink dst' options)]
                   (f source' sink' options))))
 
-            (and
-              (converter-fn src (g/type #'proto/ByteSource))
-              (converter dst (g/type #'proto/ByteSink)))
-            (fn [source sink {:keys [close?] :or {close? true} :as options}]
-              (let [source' (convert source #'proto/ByteSource options)
-                    sink' (convert sink #'proto/ByteSink options)]
-                (default-transfer source' sink' options)
-                (when close?
-                  (doseq [x [source sink source' sink']]
-                    (when (proto/closeable? x)
-                      (proto/close x))))))
+          (and (converter-fn src (g/type #'proto/ByteSource))
+               (converter dst (g/type #'proto/ByteSink)))
+          (fn [source sink {:keys [close?] :or {close? true} :as options}]
+            (let [source' (convert source #'proto/ByteSource options)
+                  sink' (convert sink #'proto/ByteSink options)]
+              (default-transfer source' sink' options)
+              (when close?
+                (doseq [x [source sink source' sink']]
+                  (when (proto/closeable? x)
+                    (proto/close x))))))
 
-            :else
-            nil))))))
+          :else
+          nil))))))
 
 ;; for byte transfers
 (defn transfer
