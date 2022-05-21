@@ -9,46 +9,40 @@
      [protocols :as proto]
      [pushback-stream :as ps]
      [char-sequence :as cs]]
-    [clojure.java.io :as io]
     [clj-commons.primitive-math :as p])
   (:import
-    [clj_commons.byte_streams
-     Utils
-     ByteBufferInputStream]
-    [clj_commons.byte_streams.graph
-     Type]
-    [java.nio
-     ByteBuffer
-     DirectByteBuffer]
-    [java.lang.reflect
-     Array]
-    [java.util.concurrent.atomic
-     AtomicBoolean]
-    [java.io
-     File
-     FileOutputStream
-     FileInputStream
-     ByteArrayInputStream
-     ByteArrayOutputStream
-     PipedOutputStream
-     PipedInputStream
-     DataInputStream
-     InputStream
-     OutputStream
-     IOException
-     RandomAccessFile
-     Reader
-     InputStreamReader
-     BufferedReader]
-    [java.nio.channels
-     ReadableByteChannel
-     WritableByteChannel
-     FileChannel
-     FileChannel$MapMode
-     Channels
-     Pipe]
-    [java.nio.channels.spi
-     AbstractSelectableChannel]))
+    (clj_commons.byte_streams
+      Utils
+      ByteBufferInputStream)
+    (clj_commons.byte_streams.graph
+      Type)
+    (java.nio
+      ByteBuffer)
+    (java.lang.reflect
+      Array)
+    (java.io
+      File
+      ByteArrayInputStream
+      ByteArrayOutputStream
+      PipedOutputStream
+      PipedInputStream
+      DataInputStream
+      InputStream
+      OutputStream
+      IOException
+      Reader
+      BufferedReader
+      InputStreamReader)
+    (java.nio.channels
+      ReadableByteChannel
+      WritableByteChannel
+      FileChannel
+      FileChannel$MapMode
+      Channels
+      Pipe)
+    (java.nio.channels.spi
+      AbstractSelectableChannel)
+    (java.nio.file StandardOpenOption)))
 
 ;;;
 
@@ -576,35 +570,57 @@
 ;; file => readable-channel
 (def-conversion ^{:cost 0} [File ReadableByteChannel]
   [file]
-  (.getChannel (FileInputStream. file)))
+  (-> file
+      (.toPath)
+      (FileChannel/open (into-array StandardOpenOption
+                                    [StandardOpenOption/READ]))))
 
 ;; file => writable-channel
 (def-conversion ^{:cost 0} [File WritableByteChannel]
   [file {:keys [append?] :or {append? true}}]
-  (.getChannel (FileOutputStream. file (boolean append?))))
+  (let [option-array (into-array StandardOpenOption
+                                 (cond-> [StandardOpenOption/CREATE
+                                          StandardOpenOption/WRITE]
+                                         append?
+                                         (conj StandardOpenOption/APPEND)))]
+    (-> file
+        (.toPath)
+        (FileChannel/open option-array))))
 
-(def-conversion ^{:cost 0} [File (seq-of ByteBuffer)]
+;;
+(def-conversion ^{:cost 0
+                  :doc "Assumes the file size is static."} [File (seq-of ByteBuffer)]
   [file {:keys [chunk-size writable?] :or {chunk-size (int 2e9), writable? false}}]
-  (let [^RandomAccessFile raf (RandomAccessFile. file (if writable? "rw" "r"))
-        ^FileChannel fc (.getChannel raf)
+  (let [option-array (into-array StandardOpenOption
+                                 (cond-> [StandardOpenOption/READ]
+                                         writable?
+                                         (conj StandardOpenOption/CREATE
+                                               StandardOpenOption/WRITE)))
+        ^FileChannel fc (-> file
+                            (.toPath)
+                            (FileChannel/open option-array))
+        close-fn #(.close fc)
         buf-seq (fn buf-seq [offset]
-                  (when-not (<= (.size fc) offset)
-                    (let [remaining (- (.size fc) offset)]
+                  (when (and (.isOpen fc)
+                             (> (.size fc) offset))
+                    (let [remaining (- (.size fc) offset)
+                          close-after-reading? (<= remaining chunk-size)]
                       (lazy-seq
                         (cons
-                          (.map fc
-                            (if writable?
-                              FileChannel$MapMode/READ_WRITE
-                              FileChannel$MapMode/READ_ONLY)
-                            offset
-                            (min remaining chunk-size))
+                          (let [mbb (.map fc
+                                          (if writable?
+                                            FileChannel$MapMode/READ_WRITE
+                                            FileChannel$MapMode/READ_ONLY)
+                                          offset
+                                          (min remaining chunk-size))]
+                            (when close-after-reading?
+                              (close-fn))
+                            mbb)
                           (buf-seq (+ offset chunk-size)))))))]
     (g/closeable-seq
       (buf-seq 0)
       false
-      #(do
-         (.close raf)
-         (.close fc)))))
+      close-fn)))
 
 ;; output-stream => writable-channel
 (def-conversion ^{:cost 0} [OutputStream WritableByteChannel]

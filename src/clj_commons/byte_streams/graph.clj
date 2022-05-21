@@ -194,25 +194,21 @@
       (close-fn)
       nil)
     (reify
-
       clojure.lang.IPending
       (isRealized [_]
         (or
           (not (instance? clojure.lang.IPending s))
           (realized? s)))
 
-      Object
-      (finalize [_]
-        (close-fn))
-
       java.io.Closeable
       (close [_]
         (close-fn))
 
       clojure.lang.Sequential
-      clojure.lang.ISeq
       clojure.lang.Seqable
       (seq [this] this)
+
+      clojure.lang.ISeq
       (cons [_ a]
         (closeable-seq (cons a s) exhaustible? close-fn))
       (next [this]
