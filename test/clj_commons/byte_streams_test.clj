@@ -80,24 +80,39 @@
     (.deleteOnExit)))
 
 (deftest test-transfer
-  (doseq [dst (->> String
-                possible-conversions
-                (map eval'))]
+  (testing "transfer"
+    (doseq [dst (->> String
+                     possible-conversions
+                     (map eval'))]
 
-    (let [file (temp-file)
-          file' (temp-file)]
-      (transfer (convert text dst) dev-null)
-      (transfer (convert text dst) file {:chunk-size 128})
-      (is (= text (to-string file)))
-      (transfer (convert text dst) file {:chunk-size 128, :append? false})
-      (is (= text (to-string file)))
-      (is (= text (to-string (to-byte-buffers file {:chunk-size 128}))))
+      (let [file (temp-file)]
+        (testing "basic usage"
+          (transfer (convert text dst) dev-null)
+          (transfer (convert text dst) file {:chunk-size 128})
+          (is (= (to-string file) text)
+              (str "Error transferring from " dst)))
 
-      (transfer file file')
-      (is (= text (to-string file')))
-      (is (= text (to-string (to-byte-buffers file' {:chunk-size 128})))))))
+        (testing "append? false"
+          (transfer (convert text dst) file {:chunk-size 128, :append? false})
+          (is (= (to-string file) text) (str "Error transferring from " dst))
+          (is (= (to-string (to-byte-buffers file {:chunk-size 128})) text) (str "Error transferring from " dst))))
 
-;;;
+      (testing "append? true"
+        (let [append-file (temp-file)]
+          (transfer (convert text dst) append-file {:chunk-size 128, :append? true})
+          (is (= (to-string append-file) text) (str "Error initially transferring from " dst))
+
+          (transfer (convert text dst) append-file {:chunk-size 128, :append? true})
+          (is (= (to-string append-file) (str text text)) (str "Error appending from " dst)))))
+
+    (testing "file->file transfer"
+      (let [file (temp-file)
+            file' (temp-file)]
+        (transfer text file)
+
+        (transfer file file')
+        (is (= (to-string file') text))
+        (is (= (to-string (to-byte-buffers file' {:chunk-size 128})) text))))))
 
 (deftest test-byte-buffer
   (let [arr (.getBytes ^String text)
