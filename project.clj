@@ -14,8 +14,7 @@
                                   [rhizome "0.2.9"]
                                   [codox-md "0.2.0" :exclusions [org.clojure/clojure]]
                                   [criterium "0.4.6"]]}
-             :ci {:javac-options ["-target" "1.8" "-source" "1.8"]
-                  :dependencies [[org.clojure/clojure "1.11.1"]
+             :ci {:dependencies [[org.clojure/clojure "1.11.1"]
                                  [org.clojure/test.check "1.1.1"]
                                  [rhizome "0.2.9"]]}}
   :test-selectors {:stress :stress
@@ -30,4 +29,5 @@
           :namespaces [byte-streams]}
   :global-vars {*warn-on-reflection* true}
   :java-source-paths ["src"]
+  :javac-options ["-target" "1.8" "-source" "1.8"]
   :jvm-opts ^:replace ["-server" "-Xmx4g"])

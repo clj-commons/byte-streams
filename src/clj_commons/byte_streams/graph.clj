@@ -181,8 +181,9 @@
                     p
                     (do
                       (doseq [[[src dst] c] (->> curr
-                                              (possible-conversions g)
-                                              (remove (fn [[[src dst] c]] ((.visited? p) dst))))]
+                                                 (possible-conversions g)
+                                                 (remove (fn [[[src dst] c]]
+                                                           ((.visited? p) dst))))]
                         (.add q (conj-path p src dst c)))
                       (recur))))))))))))
 

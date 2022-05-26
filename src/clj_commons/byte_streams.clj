@@ -188,7 +188,6 @@
                  (or source-type
                      (type-descriptor x)))
            wrapper (.wrapper src)]
-
        (cond
 
          (not (nil? (.type src)))
@@ -257,47 +256,45 @@
                            (nil? (.wrapper src))
                            converter
 
-                           (#{'seq 'vector} (.wrapper src))
-                           (fn [_ d] (seq-converter d))
+                         (#{'seq 'vector} (.wrapper src))
+                         (fn [_ d] (seq-converter d))
 
-                           (= 'stream (.wrapper src))
-                           (fn [_ d] (stream-converter d)))]
+                         (= 'stream (.wrapper src))
+                         (fn [_ d] (stream-converter d)))]
 
-        ;; TODO: do a reverse traversal, not an exhaustive forward search
-        (let [[src' dst'] (->> @src->dst->transfer
-                            keys
-                            (map (fn [src']
-                                   (and
-                                     (converter-fn src src')
-                                     (when-let [dst' (some
-                                                       #(and (converter-fn dst %) %)
-                                                       (keys (@src->dst->transfer src')))]
-                                       [src' dst']))))
-                            (remove nil?)
-                            first)]
-          (cond
+      ;; TODO: do a reverse traversal, not an exhaustive forward search
+      (let [[src' dst'] (->> @src->dst->transfer
+                             keys
+                             (map (fn [src']
+                                    (and
+                                      (converter-fn src src')
+                                      (when-let [dst' (some
+                                                        #(and (converter-fn dst %) %)
+                                                        (keys (@src->dst->transfer src')))]
+                                        [src' dst']))))
+                             (remove nil?)
+                             first)]
+        (cond
+          (and src' dst')
+          (let [f (get-in @src->dst->transfer [src' dst'])]
+            (fn [source sink options]
+              (let [source' (convert source src' options)
+                    sink' (convert sink dst' options)]
+                (f source' sink' options))))
 
-            (and src' dst')
-            (let [f (get-in @src->dst->transfer [src' dst'])]
-              (fn [source sink options]
-                (let [source' (convert source src' options)
-                      sink' (convert sink dst' options)]
-                  (f source' sink' options))))
+          (and (converter-fn src (g/type #'proto/ByteSource))
+               (converter dst (g/type #'proto/ByteSink)))
+          (fn [source sink {:keys [close?] :or {close? true} :as options}]
+            (let [source' (convert source #'proto/ByteSource options)
+                  sink' (convert sink #'proto/ByteSink options)]
+              (default-transfer source' sink' options)
+              (when close?
+                (doseq [x [source sink source' sink']]
+                  (when (proto/closeable? x)
+                    (proto/close x))))))
 
-            (and
-              (converter-fn src (g/type #'proto/ByteSource))
-              (converter dst (g/type #'proto/ByteSink)))
-            (fn [source sink {:keys [close?] :or {close? true} :as options}]
-              (let [source' (convert source #'proto/ByteSource options)
-                    sink' (convert sink #'proto/ByteSink options)]
-                (default-transfer source' sink' options)
-                (when close?
-                  (doseq [x [source sink source' sink']]
-                    (when (proto/closeable? x)
-                      (proto/close x))))))
-
-            :else
-            nil))))))
+          :else
+          nil))))))
 
 ;; for byte transfers
 (defn transfer
@@ -638,10 +635,11 @@
   [channel file {:keys [chunk-size] :or {chunk-size (int 1e7)} :as options}]
   (let [^FileChannel fc (convert file WritableByteChannel options)]
     (try
-      (loop [idx 0]
-        (let [n (.transferFrom fc channel idx chunk-size)]
-          (when (pos? n)
-            (recur (+ idx n)))))
+      ;; .position() is 0 for normal mode, and the current size of the file in append mode
+      (loop [pos (.position fc)]
+        (let [n (.transferFrom fc channel pos chunk-size)]
+          (when (pos? n)                                    ; 0 = end-of-channel
+            (recur (+ pos n)))))
       (finally
         (.force fc true)
         (.close fc)))))
