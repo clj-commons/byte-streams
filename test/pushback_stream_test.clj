@@ -1,4 +1,8 @@
-(ns pushback-stream-test
+(ns ^{:deprecated true
+      :doc "DEPRECATED: moved to clj-commons.pushback-stream-test"
+      :no-doc true
+      :superseded-by "clj-commons.pushback-stream-test"}
+  pushback-stream-test
   (:require
     [clojure.test :refer :all]
     [byte-streams.pushback-stream :as p]))

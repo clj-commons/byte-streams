@@ -1,4 +1,8 @@
-(ns byte-streams-simple-check
+(ns ^{:deprecated true
+      :doc "DEPRECATED: moved to clj-commons.byte-streams-simple-check"
+      :no-doc true
+      :superseded-by "clj-commons.byte-streams-simple-check"}
+  byte-streams-simple-check
   (:require
     [clojure.test :refer :all]
     [byte-streams :as bs]

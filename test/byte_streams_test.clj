@@ -1,4 +1,8 @@
-(ns byte-streams-test
+(ns ^{:deprecated true
+      :doc "DEPRECATED: moved to clj-commons.byte-streams-test"
+      :no-doc true
+      :superseded-by "clj-commons.byte-streams-test"}
+  byte-streams-test
   (:require
     [byte-streams :refer [bytes= compare-bytes conversion-path convert dev-null possible-conversions seq-of stream-of to-byte-array to-byte-buffer to-byte-buffers to-input-stream to-string transfer vector-of]]
     [clojure.test :refer :all]
