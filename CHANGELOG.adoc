@@ -1,5 +1,14 @@
 == Changes
 
+=== 0.3.1
+
+* Ensured close-on-exhaustion behavior when doing whole java.io.File-based conversion
+* Removed problematic finalizer that could prematurely close a large file before conversion was finished
+* Fixed broken transfer append behavior on Mac/Windows
+* Simplified some conversion pathways
+
+Contributions by Matthew Davidson
+
 === 0.3.0
 
 * Copied code and tests to nested namespaces, deprecated top-level single-segment ns for Graal/clj-easy

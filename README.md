@@ -12,12 +12,12 @@ This library is a Rosetta stone for all the byte representations Java has to off
 
 Leiningen:
 ```clojure
-[org.clj-commons/byte-streams "0.3.0"]
+[org.clj-commons/byte-streams "0.3.1"]
 ```
 
 deps.edn:
 ```clojure
-org.clj-commons/byte-streams {:mvn/version "0.3.0"}
+org.clj-commons/byte-streams {:mvn/version "0.3.1"}
 ```
 
 ### Converting types
