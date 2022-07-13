@@ -845,7 +845,9 @@
      (convert x ReadableByteChannel options)))
 
 (defn ^String to-string
-  "Converts the object to a string."
+  "Converts the object to a string.
+  Will consume all input. 
+  Consider using to-reader, to-line-seq, or to-char-sequence for lazy / partial input consumption."
   ([x]
      (to-string x nil))
   ([x options]
