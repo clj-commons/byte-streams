@@ -112,7 +112,7 @@
       (let [n (long @(.take this ary offset length true))]
         (if (zero? n)
           -1
-         n)))
+          n)))
 
    (skip [this n]
      @(.take this (byte-array n) 0 n true))
@@ -127,9 +127,7 @@
               [u/with-lock* lock])
 
             (if closed?
-              [nil
-               (d/success-deferred false)]
-
+              [nil (d/success-deferred false)]
               [(loop [acc []]
                  (if-let [^Consumption c (.peek consumers)]
                    (let [^ByteBuffer out (.buf c)]
@@ -198,14 +196,12 @@
          (.limit (+ offset length)))))
 
    (take [_ ary offset length eager?]
-
      (let [out (-> (ByteBuffer/wrap ary)
-                 (.position offset)
-                 ^ByteBuffer (.limit (+ offset length))
-                 .slice)
+                   (.position offset)
+                   ^ByteBuffer (.limit (+ offset length))
+                   .slice)
 
            [put take]
-
            ((either
               [do]
               [u/with-lock* lock])
@@ -226,8 +222,8 @@
                  d))
 
              (if (or closed?
-                   (and (pos? (.position out))
-                     (or eager? (not (.hasRemaining out)))))
+                     (and (pos? (.position out))
+                          (or eager? (not (.hasRemaining out)))))
                (d/success-deferred (.position out))
                (let [d (d/deferred)]
                  (.add consumers (Consumption. out d eager?))
