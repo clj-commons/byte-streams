@@ -13,7 +13,9 @@
                                   [org.clojure/test.check "1.1.1"]
                                   [rhizome "0.2.9"]
                                   [codox-md "0.2.0" :exclusions [org.clojure/clojure]]
-                                  [criterium "0.4.6"]]}
+                                  [criterium "0.4.6"]]
+                   :global-vars {*warn-on-reflection* true
+                                 *unchecked-math* :warn-on-boxed}}
              :ci {:dependencies [[org.clojure/clojure "1.11.1"]
                                  [org.clojure/test.check "1.1.1"]
                                  [rhizome "0.2.9"]]}}
