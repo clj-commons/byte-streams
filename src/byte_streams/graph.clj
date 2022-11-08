@@ -36,8 +36,8 @@
       (= type (.type ^Type x))))
   (hashCode [_]
     (bit-xor
-      ^long (hash wrapper)
-      ^long (hash type)))
+      (hash wrapper)
+      (hash type)))
   (toString [this]
     (pr-str (pprint-type this))))
 
@@ -127,7 +127,7 @@
                    (assoc-in [(Type. 'seq src) (Type. 'seq dst)]
                      (Conversion. (fn [x options] (map #(f % options) x)) cost))
                    (assoc-in [(Type. 'stream src) (Type. 'stream dst)]
-                     (Conversion. (fn [x options] (s/map #(f % options) x)) (+ ^double cost 0.1)))))
+                     (Conversion. (fn [x options] (s/map #(f % options) x)) (+ cost 0.1)))))
                m')]
       (ConversionGraph. m')))
   (possible-sources [_]
@@ -156,7 +156,7 @@
 
 ;;;
 
-(defrecord+ ConversionPath [path fns visited? ^double cost]
+(defrecord+ ConversionPath [path fns visited? cost]
   Comparable
   (compareTo [_ x]
     (let [cmp (compare cost (.cost ^ConversionPath x))]
