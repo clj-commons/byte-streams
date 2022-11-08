@@ -31,8 +31,8 @@
       (= type (.type ^Type x))))
   (hashCode [_]
     (bit-xor
-      ^long (hash wrapper)
-      ^long (hash type)))
+      (long (hash wrapper))
+      (long (hash type))))
   (toString [this]
     (pr-str (pprint-type this))))
 
