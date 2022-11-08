@@ -432,12 +432,12 @@
   [buf {:keys [chunk-size]}]
   (if chunk-size
     (let [lim (.limit buf)
-          indices (range (.position buf) lim chunk-size)]
+          indices (range (.position buf) lim ^long chunk-size)]
       (mapv
         #(-> buf
            .duplicate
            ^ByteBuffer (.position (int %))
-           ^ByteBuffer (.limit (int (min lim (+ (int %) chunk-size))))
+           ^ByteBuffer (.limit (int (min lim (+ (int %) ^long chunk-size))))
            .slice)
         indices))
     [buf]))
@@ -587,7 +587,7 @@
 ;;
 (def-conversion ^{:cost 0
                   :doc "Assumes the file size is static."} [File (seq-of ByteBuffer)]
-  [file {:keys [chunk-size writable?] :or {chunk-size (int 2e9), writable? false}}]
+  [file {:keys [^long chunk-size writable?] :or {chunk-size (int 2e9), writable? false}}]
   (let [option-array (into-array StandardOpenOption
                                  (cond-> [StandardOpenOption/READ]
                                          writable?
@@ -597,7 +597,7 @@
                             (.toPath)
                             (FileChannel/open option-array))
         close-fn #(.close fc)
-        buf-seq (fn buf-seq [offset]
+        buf-seq (fn buf-seq [^long offset]
                   (when (and (.isOpen fc)
                              (> (.size fc) offset))
                     (let [remaining (- (.size fc) offset)
@@ -732,7 +732,7 @@
         (.flip buf))))
 
   ByteBuffer
-  (take-bytes! [this n _]
+  (take-bytes! [this ^long n _]
     (when (pos? (.remaining this))
       (let [n (int (min (.remaining this) n))
             buf (-> this
@@ -855,7 +855,7 @@
 
 (defn ^String to-string
   "Converts the object to a string.
-  Will consume all input it can. 
+  Will consume all input it can.
   Consider using to-reader, to-line-seq, or to-char-sequence for lazy / partial input consumption."
   ([x]
      (to-string x nil))

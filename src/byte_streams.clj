@@ -446,12 +446,12 @@
   [buf {:keys [chunk-size]}]
   (if chunk-size
     (let [lim (.limit buf)
-          indices (range (.position buf) lim chunk-size)]
+          indices (range (.position buf) lim ^long chunk-size)]
       (mapv
         #(-> buf
            .duplicate
            ^ByteBuffer (.position (int %))
-           ^ByteBuffer (.limit (int (min lim (+ (int %) chunk-size))))
+           ^ByteBuffer (.limit (int (min lim (+ (int %) ^long chunk-size))))
            .slice)
         indices))
     [buf]))
@@ -589,10 +589,10 @@
   (.getChannel (FileOutputStream. file (boolean append?))))
 
 (def-conversion ^{:cost 0} [File (seq-of ByteBuffer)]
-  [file {:keys [chunk-size writable?] :or {chunk-size (int 2e9), writable? false}}]
+  [file {:keys [^long chunk-size writable?] :or {chunk-size (int 2e9), writable? false}}]
   (let [^RandomAccessFile raf (RandomAccessFile. file (if writable? "rw" "r"))
         ^FileChannel fc (.getChannel raf)
-        buf-seq (fn buf-seq [offset]
+        buf-seq (fn buf-seq [^long offset]
                   (when-not (<= (.size fc) offset)
                     (let [remaining (- (.size fc) offset)]
                       (lazy-seq
@@ -723,7 +723,7 @@
         (.flip buf))))
 
   ByteBuffer
-  (take-bytes! [this n _]
+  (take-bytes! [this ^long n _]
     (when (pos? (.remaining this))
       (let [n (int (min (.remaining this) n))
             buf (-> this
