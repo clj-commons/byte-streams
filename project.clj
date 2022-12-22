@@ -13,21 +13,14 @@
   :profiles {:dev {:dependencies [[org.clojure/clojure "1.11.1"]
                                   [org.clojure/test.check "1.1.1"]
                                   [rhizome "0.2.9"]
-                                  [codox-md "0.2.0" :exclusions [org.clojure/clojure]]
                                   [criterium "0.4.6"]]}
              :ci {:dependencies [[org.clojure/clojure "1.11.1"]
-                                 [org.clojure/test.check "1.1.1"]
-                                 [rhizome "0.2.9"]]}}
+                                 [org.clojure/test.check "1.1.1"]]}}
   :test-selectors {:stress :stress
                    :default (complement :stress)}
-  :plugins [[lein-codox "0.10.3"]
-            [jonase/eastwood "0.4.3"]
-            [lein-jammin "0.1.1"]
-            [ztellman/lein-cljfmt "0.1.10"]]
-  :cljfmt {:indents {#".*" [[:inner 0]]}}
-  :codox {:source-uri "https://github.com/clj-commons/byte-streams/blob/master/{filepath}#L{line}"
-          :metadata {:doc/format :markdown}
-          :namespaces [byte-streams]}
+  :plugins [[jonase/eastwood "1.3.0"]
+            [lein-cljfmt "0.9.0"]]
+  ;;:cljfmt {:indents {#".*" [[:inner 0]]}}
   :global-vars {*warn-on-reflection* true}
   :java-source-paths ["src"]
   :javac-options ["-target" "1.8" "-source" "1.8"]
