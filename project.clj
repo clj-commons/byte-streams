@@ -20,7 +20,6 @@
                    :default (complement :stress)}
   :plugins [[jonase/eastwood "1.3.0"]
             [lein-cljfmt "0.9.0"]]
-  ;;:cljfmt {:indents {#".*" [[:inner 0]]}}
   :global-vars {*warn-on-reflection* true}
   :java-source-paths ["src"]
   :javac-options ["-target" "1.8" "-source" "1.8"]

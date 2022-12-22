@@ -1,48 +1,48 @@
 (ns clj-commons.byte-streams
   (:refer-clojure :exclude [byte-array vector-of])
   (:require
-    [manifold
-     [stream :as s]
-     [deferred :as d]]
-    [clj-commons.byte-streams
-     [graph :as g]
-     [protocols :as proto]
-     [pushback-stream :as ps]
-     [char-sequence :as cs]]
-    [clj-commons.primitive-math :as p])
+   [manifold
+    [stream :as s]
+    [deferred :as d]]
+   [clj-commons.byte-streams
+    [graph :as g]
+    [protocols :as proto]
+    [pushback-stream :as ps]
+    [char-sequence :as cs]]
+   [clj-commons.primitive-math :as p])
   (:import
-    (clj_commons.byte_streams
-      Utils
-      ByteBufferInputStream)
-    (clj_commons.byte_streams.graph
-      Type)
-    (java.nio
-      ByteBuffer)
-    (java.lang.reflect
-      Array)
-    (java.io
-      File
-      ByteArrayInputStream
-      ByteArrayOutputStream
-      PipedOutputStream
-      PipedInputStream
-      DataInputStream
-      InputStream
-      OutputStream
-      IOException
-      Reader
-      BufferedReader
-      InputStreamReader)
-    (java.nio.channels
-      ReadableByteChannel
-      WritableByteChannel
-      FileChannel
-      FileChannel$MapMode
-      Channels
-      Pipe)
-    (java.nio.channels.spi
-      AbstractSelectableChannel)
-    (java.nio.file StandardOpenOption)))
+   (clj_commons.byte_streams
+    Utils
+    ByteBufferInputStream)
+   (clj_commons.byte_streams.graph
+    Type)
+   (java.nio
+    ByteBuffer)
+   (java.lang.reflect
+    Array)
+   (java.io
+    File
+    ByteArrayInputStream
+    ByteArrayOutputStream
+    PipedOutputStream
+    PipedInputStream
+    DataInputStream
+    InputStream
+    OutputStream
+    IOException
+    Reader
+    BufferedReader
+    InputStreamReader)
+   (java.nio.channels
+    ReadableByteChannel
+    WritableByteChannel
+    FileChannel
+    FileChannel$MapMode
+    Channels
+    Pipe)
+   (java.nio.channels.spi
+    AbstractSelectableChannel)
+   (java.nio.file StandardOpenOption)))
 
 ;;;
 
@@ -129,34 +129,34 @@
         src-meta (tag-metadata-for src)
         dst-meta (tag-metadata-for dst)]
     `(swap! src->dst->transfer assoc-in [~src ~dst]
-       (fn [~(with-meta (first params) src-meta)
-            ~(with-meta (second params) dst-meta)
-            ~(if-let [options (get params 2)] options (gensym "options"))]
-         ~@body))))
+            (fn [~(with-meta (first params) src-meta)
+                 ~(with-meta (second params) dst-meta)
+                 ~(if-let [options (get params 2)] options (gensym "options"))]
+              ~@body))))
 
 ;;; convert
 
 (def ^:private converter
   (memoize
-    (fn [src dst]
-      (g/conversion-fn @conversions src dst))))
+   (fn [src dst]
+     (g/conversion-fn @conversions src dst))))
 
 (declare convert)
 
 (def ^:private seq-converter
   (memoize
-    (fn [dst]
-      (g/seq-conversion-fn @conversions convert 'seq dst))))
+   (fn [dst]
+     (g/seq-conversion-fn @conversions convert 'seq dst))))
 
 (def ^:private stream-converter
   (memoize
-    (fn [dst]
-      (g/seq-conversion-fn @conversions convert 'stream dst))))
+   (fn [dst]
+     (g/seq-conversion-fn @conversions convert 'stream dst))))
 
 (defn conversion-path [src dst]
   (let [path (-> @conversions
-               (g/conversion-path (g/type src) (g/type dst))
-               :path)]
+                 (g/conversion-path (g/type src) (g/type dst))
+                 :path)]
     (map (partial mapv g/pprint-type) path)))
 
 (defn convert
@@ -179,38 +179,38 @@
    (NB: if you need to convert a stream to a seq, or vice versa, but not the underlying byte type, you want
    Manifold's `stream->seq` and `->source` instead)"
   ([x dst]
-     (convert x dst nil))
+   (convert x dst nil))
   ([x dst options]
-     (let [dst (g/type dst)
-           source-type (get options :source-type)
-           ^Type
-           src (g/type
-                 (or source-type
-                     (type-descriptor x)))
-           wrapper (.wrapper src)]
-       (cond
+   (let [dst (g/type dst)
+         source-type (get options :source-type)
+         ^Type
+         src (g/type
+              (or source-type
+                  (type-descriptor x)))
+         wrapper (.wrapper src)]
+     (cond
 
-         (not (nil? (.type src)))
-         (if-let [f (or
-                      (converter src dst)
-                      (converter (g/type (class x)) dst))]
-           (f x (if source-type (dissoc options :source-type) options))
-           (throw
-             (IllegalArgumentException.
-               (str "Don't know how to convert " (class x) " into " (g/pprint-type dst)))))
+       (not (nil? (.type src)))
+       (if-let [f (or
+                   (converter src dst)
+                   (converter (g/type (class x)) dst))]
+         (f x (if source-type (dissoc options :source-type) options))
+         (throw
+          (IllegalArgumentException.
+           (str "Don't know how to convert " (class x) " into " (g/pprint-type dst)))))
 
-         (= 'seq wrapper)
-         (if-let [f (seq-converter dst)]
-           (f x (if source-type (dissoc options :source-type) options))
-           x)
+       (= 'seq wrapper)
+       (if-let [f (seq-converter dst)]
+         (f x (if source-type (dissoc options :source-type) options))
+         x)
 
-         (= 'stream wrapper)
-         (if-let [f (stream-converter dst)]
-           (f x (if source-type (dissoc options :source-type) options))
-           x)
+       (= 'stream wrapper)
+       (if-let [f (stream-converter dst)]
+         (f x (if source-type (dissoc options :source-type) options))
+         x)
 
-         :else
-         (throw (IllegalArgumentException. (str "invalid wrapper type: " (pr-str wrapper) " " (pr-str (.type src)))))))))
+       :else
+       (throw (IllegalArgumentException. (str "invalid wrapper type: " (pr-str wrapper) " " (pr-str (.type src)))))))))
 
 (defn possible-conversions
   "Returns a list of all possible conversion targets from value."
@@ -226,15 +226,15 @@
                (= 'stream (.wrapper src))
                stream-converter)]
     (->> @conversions
-      g/possible-targets
-      (filter pred)
-      (map g/pprint-type))))
+         g/possible-targets
+         (filter pred)
+         (map g/pprint-type))))
 
 (let [memoized-cost (memoize
-                      (fn [src dst]
-                        (if-let [path (g/conversion-path @conversions src dst)]
-                          (:cost path)
-                          9999)))]
+                     (fn [src dst]
+                       (if-let [path (g/conversion-path @conversions src dst)]
+                         (:cost path)
+                         9999)))]
   (defn conversion-cost
     "Returns the estimated cost of converting the data `x` to the destination type `dst`."
     ^long [x dst]
@@ -251,50 +251,50 @@
 
 (def ^:private transfer-fn
   (memoize
-    (fn this [^Type src ^Type dst]
-      (let [converter-fn (cond
-                           (nil? (.wrapper src))
-                           converter
+   (fn this [^Type src ^Type dst]
+     (let [converter-fn (cond
+                          (nil? (.wrapper src))
+                          converter
 
-                         (#{'seq 'vector} (.wrapper src))
-                         (fn [_ d] (seq-converter d))
+                          (#{'seq 'vector} (.wrapper src))
+                          (fn [_ d] (seq-converter d))
 
-                         (= 'stream (.wrapper src))
-                         (fn [_ d] (stream-converter d)))]
+                          (= 'stream (.wrapper src))
+                          (fn [_ d] (stream-converter d)))]
 
       ;; TODO: do a reverse traversal, not an exhaustive forward search
-      (let [[src' dst'] (->> @src->dst->transfer
-                             keys
-                             (map (fn [src']
-                                    (and
+       (let [[src' dst'] (->> @src->dst->transfer
+                              keys
+                              (map (fn [src']
+                                     (and
                                       (converter-fn src src')
                                       (when-let [dst' (some
-                                                        #(and (converter-fn dst %) %)
-                                                        (keys (@src->dst->transfer src')))]
+                                                       #(and (converter-fn dst %) %)
+                                                       (keys (@src->dst->transfer src')))]
                                         [src' dst']))))
-                             (remove nil?)
-                             first)]
-        (cond
-          (and src' dst')
-          (let [f (get-in @src->dst->transfer [src' dst'])]
-            (fn [source sink options]
-              (let [source' (convert source src' options)
-                    sink' (convert sink dst' options)]
-                (f source' sink' options))))
+                              (remove nil?)
+                              first)]
+         (cond
+           (and src' dst')
+           (let [f (get-in @src->dst->transfer [src' dst'])]
+             (fn [source sink options]
+               (let [source' (convert source src' options)
+                     sink' (convert sink dst' options)]
+                 (f source' sink' options))))
 
-          (and (converter-fn src (g/type #'proto/ByteSource))
-               (converter dst (g/type #'proto/ByteSink)))
-          (fn [source sink {:keys [close?] :or {close? true} :as options}]
-            (let [source' (convert source #'proto/ByteSource options)
-                  sink' (convert sink #'proto/ByteSink options)]
-              (default-transfer source' sink' options)
-              (when close?
-                (doseq [x [source sink source' sink']]
-                  (when (proto/closeable? x)
-                    (proto/close x))))))
+           (and (converter-fn src (g/type #'proto/ByteSource))
+                (converter dst (g/type #'proto/ByteSink)))
+           (fn [source sink {:keys [close?] :or {close? true} :as options}]
+             (let [source' (convert source #'proto/ByteSource options)
+                   sink' (convert sink #'proto/ByteSink options)]
+               (default-transfer source' sink' options)
+               (when close?
+                 (doseq [x [source sink source' sink']]
+                   (when (proto/closeable? x)
+                     (proto/close x))))))
 
-          :else
-          nil))))))
+           :else
+           nil))))))
 
 ;; for byte transfers
 (defn transfer
@@ -314,15 +314,15 @@
 
    `close?`     - whether the sink and source should be closed once the transfer is done, defaults to true."
   ([source sink]
-     (transfer source sink nil))
+   (transfer source sink nil))
   ([source sink options]
-     (transfer source nil sink options))
+   (transfer source nil sink options))
   ([source source-type sink options]
-     (let [src (type-descriptor source)
-           dst (type-descriptor sink)]
-       (if-let [f (transfer-fn src dst)]
-         (f source sink options)
-         (throw (IllegalArgumentException. (str "Don't know how to transfer between " (g/pprint-type src) " to " (g/pprint-type dst))))))))
+   (let [src (type-descriptor source)
+         dst (type-descriptor sink)]
+     (if-let [f (transfer-fn src dst)]
+       (f source sink options)
+       (throw (IllegalArgumentException. (str "Don't know how to transfer between " (g/pprint-type src) " to " (g/pprint-type dst))))))))
 
 (def ^{:doc "Web-scale."} dev-null
   (reify proto/ByteSink
@@ -340,15 +340,15 @@
   (let [ps (ps/pushback-stream (get options :buffer-size 1024))]
     (d/loop []
       (d/chain (s/take! s ::none)
-        (fn [^bytes msg]
-          (if (identical? ::none msg)
-            (do
-              (ps/close ps)
-              false)
-            (ps/put-array ps msg 0 (alength msg))))
-        (fn [result]
-          (when result
-            (d/recur)))))
+               (fn [^bytes msg]
+                 (if (identical? ::none msg)
+                   (do
+                     (ps/close ps)
+                     false)
+                   (ps/put-array ps msg 0 (alength msg))))
+               (fn [result]
+                 (when result
+                   (d/recur)))))
     (ps/->input-stream ps)))
 
 (def-conversion ^{:cost 0} [(stream-of ByteBuffer) InputStream]
@@ -356,15 +356,15 @@
   (let [ps (ps/pushback-stream (get options :buffer-size 1024))]
     (d/loop []
       (d/chain (s/take! s ::none)
-        (fn [^ByteBuffer msg]
-          (if (identical? ::none msg)
-            (do
-              (ps/close ps)
-              false)
-            (ps/put-buffer ps (.duplicate msg))))
-        (fn [result]
-          (when result
-            (d/recur)))))
+               (fn [^ByteBuffer msg]
+                 (if (identical? ::none msg)
+                   (do
+                     (ps/close ps)
+                     false)
+                   (ps/put-buffer ps (.duplicate msg))))
+               (fn [result]
+                 (when result
+                   (d/recur)))))
     (ps/->input-stream ps)))
 
 ;; byte-array => byte-buffer
@@ -434,12 +434,12 @@
     (let [lim (.limit buf)
           indices (range (.position buf) lim chunk-size)]
       (mapv
-        #(-> buf
-           .duplicate
-           ^ByteBuffer (.position (int %))
-           ^ByteBuffer (.limit (int (min lim (+ (int %) chunk-size))))
-           .slice)
-        indices))
+       #(-> buf
+            .duplicate
+            ^ByteBuffer (.position (int %))
+            ^ByteBuffer (.limit (int (min lim (+ (int %) chunk-size))))
+            .slice)
+       indices))
     [buf]))
 
 ;; channel => input-stream
@@ -451,8 +451,8 @@
 (def-conversion [ReadableByteChannel (seq-of ByteBuffer)]
   [channel {:keys [chunk-size direct?] :or {chunk-size 4096, direct? false} :as options}]
   (lazy-seq
-    (when-let [b (proto/take-bytes! channel chunk-size options)]
-      (cons b (convert channel (seq-of ByteBuffer) options)))))
+   (when-let [b (proto/take-bytes! channel chunk-size options)]
+     (cons b (convert channel (seq-of ByteBuffer) options)))))
 
 ;; input-stream => channel
 (def-conversion ^{:cost 0} [InputStream ReadableByteChannel]
@@ -514,9 +514,9 @@
     (.toByteArray out)))
 
 #_(let [ary (Utils/byteArray 0)]
-  (def-conversion ^{:cost 0} [::nil byte-array-type]
-    [src options]
-    ary))
+    (def-conversion ^{:cost 0} [::nil byte-array-type]
+      [src options]
+      ary))
 
 (def-conversion ^{:cost 2} [#'proto/ByteSource byte-array-type]
   [src options]
@@ -528,11 +528,11 @@
 (def-conversion ^{:cost 2} [#'proto/ByteSource CharSequence]
   [source options]
   (cs/decode-byte-source
-    #(when-let [bytes (proto/take-bytes! source % options)]
-       (convert bytes ByteBuffer options))
-    #(when (proto/closeable? source)
-       (proto/close source))
-    options))
+   #(when-let [bytes (proto/take-bytes! source % options)]
+      (convert bytes ByteBuffer options))
+   #(when (proto/closeable? source)
+      (proto/close source))
+   options))
 
 ;; input-stream => reader
 (def-conversion ^{:cost 1.5} [InputStream Reader]
@@ -578,8 +578,8 @@
   (let [option-array (into-array StandardOpenOption
                                  (cond-> [StandardOpenOption/CREATE
                                           StandardOpenOption/WRITE]
-                                         append?
-                                         (conj StandardOpenOption/APPEND)))]
+                                   append?
+                                   (conj StandardOpenOption/APPEND)))]
     (-> file
         (.toPath)
         (FileChannel/open option-array))))
@@ -590,9 +590,9 @@
   [file {:keys [chunk-size writable?] :or {chunk-size (int 2e9), writable? false}}]
   (let [option-array (into-array StandardOpenOption
                                  (cond-> [StandardOpenOption/READ]
-                                         writable?
-                                         (conj StandardOpenOption/CREATE
-                                               StandardOpenOption/WRITE)))
+                                   writable?
+                                   (conj StandardOpenOption/CREATE
+                                         StandardOpenOption/WRITE)))
         ^FileChannel fc (-> file
                             (.toPath)
                             (FileChannel/open option-array))
@@ -603,21 +603,21 @@
                     (let [remaining (- (.size fc) offset)
                           close-after-reading? (<= remaining chunk-size)]
                       (lazy-seq
-                        (cons
-                          (let [mbb (.map fc
-                                          (if writable?
-                                            FileChannel$MapMode/READ_WRITE
-                                            FileChannel$MapMode/READ_ONLY)
-                                          offset
-                                          (min remaining chunk-size))]
-                            (when close-after-reading?
-                              (close-fn))
-                            mbb)
-                          (buf-seq (+ offset chunk-size)))))))]
+                       (cons
+                        (let [mbb (.map fc
+                                        (if writable?
+                                          FileChannel$MapMode/READ_WRITE
+                                          FileChannel$MapMode/READ_ONLY)
+                                        offset
+                                        (min remaining chunk-size))]
+                          (when close-after-reading?
+                            (close-fn))
+                          mbb)
+                        (buf-seq (+ offset chunk-size)))))))]
     (g/closeable-seq
-      (buf-seq 0)
-      false
-      close-fn)))
+     (buf-seq 0)
+     false
+     close-fn)))
 
 ;; output-stream => writable-channel
 (def-conversion ^{:cost 0} [OutputStream WritableByteChannel]
@@ -736,22 +736,20 @@
     (when (pos? (.remaining this))
       (let [n (int (min (.remaining this) n))
             buf (-> this
-                  .duplicate
-                  ^ByteBuffer (.limit (+ (.position this) n))
-                  ^ByteBuffer (.slice)
-                  (.order (.order this)))]
+                    .duplicate
+                    ^ByteBuffer (.limit (+ (.position this) n))
+                    ^ByteBuffer (.slice)
+                    (.order (.order this)))]
         (.position this (+ n (.position this)))
         buf))))
-
-
 
 ;;; print-bytes
 
 (let [special-character? (->> "' _-+=`~{}[]()\\/#@!?.,;\"" (map int) set)]
   (defn- readable-character? [x]
     (or
-      (Character/isLetterOrDigit (int x))
-      (special-character? (int x)))))
+     (Character/isLetterOrDigit (int x))
+     (special-character? (int x)))))
 
 (defn print-bytes
   "Prints out the bytes in both hex and ASCII representations, 16 bytes per line."
@@ -763,145 +761,145 @@
             padding (* 3 (- 16 (count bytes)))
             hex-format #(->> "%02X" (repeat %) (interpose " ") (apply str))]
         (println
-          (apply format
-            (str
-              (hex-format (min 8 (count bytes)))
-              "  "
-              (hex-format (max 0 (- (count bytes) 8))))
-            bytes)
-          (apply str (repeat padding " "))
-          "   "
-          (->> s
-            (map #(if (readable-character? %) % "."))
-            (apply str)))))))
+         (apply format
+                (str
+                 (hex-format (min 8 (count bytes)))
+                 "  "
+                 (hex-format (max 0 (- (count bytes) 8))))
+                bytes)
+         (apply str (repeat padding " "))
+         "   "
+         (->> s
+              (map #(if (readable-character? %) % "."))
+              (apply str)))))))
 
 ;;; to-* helpers
 
 (defn ^ByteBuffer to-byte-buffer
   "Converts the object to a `java.nio.ByteBuffer`."
   ([x]
-     (to-byte-buffer x nil))
+   (to-byte-buffer x nil))
   ([x options]
-     (condp instance? x
-       ByteBuffer x
-       byte-array-type (ByteBuffer/wrap x)
-       String (ByteBuffer/wrap (.getBytes ^String x (name (get options :encoding "UTF-8"))))
-       (convert x ByteBuffer options))))
+   (condp instance? x
+     ByteBuffer x
+     byte-array-type (ByteBuffer/wrap x)
+     String (ByteBuffer/wrap (.getBytes ^String x (name (get options :encoding "UTF-8"))))
+     (convert x ByteBuffer options))))
 
 (defn to-byte-buffers
   "Converts the object to a sequence of `java.nio.ByteBuffer`."
   ([x]
-     (to-byte-buffers x nil))
+   (to-byte-buffers x nil))
   ([x options]
-     (convert x (seq-of ByteBuffer) options)))
+   (convert x (seq-of ByteBuffer) options)))
 
 (defn ^"[B" to-byte-array
   "Converts the object to a byte-array."
   ([x]
-     (to-byte-array x nil))
+   (to-byte-array x nil))
   ([x options]
-     (condp instance? x
-       byte-array-type x
-       String (.getBytes ^String x (name (get options :encoding "UTF-8")))
-       (convert x byte-array-type options))))
+   (condp instance? x
+     byte-array-type x
+     String (.getBytes ^String x (name (get options :encoding "UTF-8")))
+     (convert x byte-array-type options))))
 
 (defn to-byte-arrays
   "Converts the object to a byte-array."
   ([x]
-     (to-byte-array x nil))
+   (to-byte-array x nil))
   ([x options]
-     (convert x (seq-of byte-array-type) options)))
+   (convert x (seq-of byte-array-type) options)))
 
 (defn ^InputStream to-input-stream
   "Converts the object to a `java.io.InputStream`."
   ([x]
-     (to-input-stream x nil))
+   (to-input-stream x nil))
   ([x options]
-     (condp instance? x
-       byte-array-type (ByteArrayInputStream. x)
-       ByteBuffer (ByteBufferInputStream. x)
-       (convert x InputStream options))))
+   (condp instance? x
+     byte-array-type (ByteArrayInputStream. x)
+     ByteBuffer (ByteBufferInputStream. x)
+     (convert x InputStream options))))
 
 (defn ^DataInputStream to-data-input-stream
   ([x]
-     (to-data-input-stream x nil))
+   (to-data-input-stream x nil))
   ([x options]
-     (if (instance? DataInputStream x)
-       x
-       (DataInputStream. (to-input-stream x)))))
+   (if (instance? DataInputStream x)
+     x
+     (DataInputStream. (to-input-stream x)))))
 
 (defn ^InputStream to-output-stream
   "Converts the object to a `java.io.OutputStream`."
   ([x]
-     (to-output-stream x nil))
+   (to-output-stream x nil))
   ([x options]
-     (convert x OutputStream options)))
+   (convert x OutputStream options)))
 
 (defn ^CharSequence to-char-sequence
   "Converts to the object to a `java.lang.CharSequence`."
   ([x]
-     (to-char-sequence x nil))
+   (to-char-sequence x nil))
   ([x options]
-     (if (instance? CharSequence x)
-       x
-       (convert x CharSequence options))))
+   (if (instance? CharSequence x)
+     x
+     (convert x CharSequence options))))
 
 (defn ^ReadableByteChannel to-readable-channel
   "Converts the object to a `java.nio.ReadableByteChannel`"
   ([x]
-     (to-readable-channel x nil))
+   (to-readable-channel x nil))
   ([x options]
-     (convert x ReadableByteChannel options)))
+   (convert x ReadableByteChannel options)))
 
 (defn ^String to-string
   "Converts the object to a string.
   Will consume all input it can. 
   Consider using to-reader, to-line-seq, or to-char-sequence for lazy / partial input consumption."
   ([x]
-     (to-string x nil))
+   (to-string x nil))
   ([x options]
-     (let [encoding (get options :encoding "UTF-8")]
-       (condp instance? x
-         String x
-         byte-array-type (String. ^"[B" x ^String (name encoding))
-         (convert x String options)))))
+   (let [encoding (get options :encoding "UTF-8")]
+     (condp instance? x
+       String x
+       byte-array-type (String. ^"[B" x ^String (name encoding))
+       (convert x String options)))))
 
 (defn to-reader
   "Converts the object to a java.io.Reader."
   ([x]
-     (to-reader x nil))
+   (to-reader x nil))
   ([x options]
-     (convert x Reader options)))
+   (convert x Reader options)))
 
 (defn to-line-seq
   "Converts the object to a lazy sequence of newline-delimited strings."
   ([x]
-     (to-line-seq x nil))
+   (to-line-seq x nil))
   ([x options]
-     (let [reader (convert x Reader options)
-           reader (BufferedReader. ^Reader reader)
-           line! (fn line! []
-                   (lazy-seq
-                     (when-let [l (try
-                                    (.readLine reader)
-                                    (catch IOException e
-                                      nil))]
-                       (cons l (line!)))))]
-       (line!))))
+   (let [reader (convert x Reader options)
+         reader (BufferedReader. ^Reader reader)
+         line! (fn line! []
+                 (lazy-seq
+                  (when-let [l (try
+                                 (.readLine reader)
+                                 (catch IOException e
+                                   nil))]
+                    (cons l (line!)))))]
+     (line!))))
 
 (defn to-byte-source
   "Converts the object to something that satisfies `ByteSource`."
   ([x]
-     (to-byte-source x nil))
+   (to-byte-source x nil))
   ([x options]
-     (convert x #'proto/ByteSource options)))
+   (convert x #'proto/ByteSource options)))
 
 (defn to-byte-sink
   "Converts the object to something that satisfies `ByteSink`."
   ([x]
-     (to-byte-sink x nil))
+   (to-byte-sink x nil))
   ([x options]
-     (convert x #'proto/ByteSink options)))
+   (convert x #'proto/ByteSink options)))
 
 ;;;
 
@@ -918,8 +916,8 @@
                 (if (p/>= idx limit)
                   0
                   (let [cmp (p/-
-                              (p/int->uint (.getInt a (p/+ idx a-offset)))
-                              (p/int->uint (.getInt b (p/+ idx b-offset))))]
+                             (p/int->uint (.getInt a (p/+ idx a-offset)))
+                             (p/int->uint (.getInt b (p/+ idx b-offset))))]
                     (if (p/== 0 cmp)
                       (recur (p/+ idx 4))
                       ;; Use (if (pos? cmp) 1 -1) to ensure that the
@@ -942,8 +940,8 @@
             (if (p/>= idx limit')
               diff
               (let [cmp (p/-
-                          (p/byte->ubyte (.get a (p/+ idx a-offset)))
-                          (p/byte->ubyte (.get b (p/+ idx b-offset))))]
+                         (p/byte->ubyte (.get a (p/+ idx a-offset)))
+                         (p/byte->ubyte (.get b (p/+ idx b-offset))))]
                 (if (p/== 0 cmp)
                   (recur (p/inc idx))
                   (p/* sign cmp))))))
@@ -953,14 +951,14 @@
   "Returns a comparison result for two byte streams."
   ^long [a b]
   (if (and
-        (or
-          (instance? byte-array-type a)
-          (instance? ByteBuffer a)
-          (instance? String a))
-        (or
-          (instance? byte-array-type b)
-          (instance? ByteBuffer b)
-          (instance? String b)))
+       (or
+        (instance? byte-array-type a)
+        (instance? ByteBuffer a)
+        (instance? String a))
+       (or
+        (instance? byte-array-type b)
+        (instance? ByteBuffer b)
+        (instance? String b)))
     (cmp-bufs (to-byte-buffer a) (to-byte-buffer b))
     (loop [a (to-byte-buffers a), b (to-byte-buffers b)]
       (cond
@@ -1008,17 +1006,13 @@
   (convert content (seq-of java.nio.ByteBuffer)) ; this works
   (= content (convert content (seq-of java.nio.ByteBuffer)))
 
-
-
   (let [content (doto (ms/stream)
                   (ms/put! (clojure.core/byte-array 5))
                   (ms/close!))]
     (convert content (seq-of bytes))  ; no
-    #_ (convert content (seq-of bytes) {:source-type (stream-of bytes)}) ; yes
+    #_(convert content (seq-of bytes) {:source-type (stream-of bytes)}) ; yes
     #_(convert content (seq-of bytes) {:source-type (stream-of nil)}) ; no
     )
-
-
   (let [content (doto (ms/stream)
                   (ms/put! (clojure.core/byte-array 5))
                   (ms/close!))]
@@ -1030,6 +1024,5 @@
                   (ms/close!))]
     (convert content (seq-of java.nio.ByteBuffer)) ; this works
     (= content (convert content (seq-of java.nio.ByteBuffer))))
-
 
   )

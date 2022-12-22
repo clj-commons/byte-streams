@@ -1,9 +1,9 @@
 (ns
-  ^{:deprecated true
-    :doc "DEPRECATED: moved to clj-commons.byte-streams.utils"
-    :no-doc true
-    :superseded-by "clj-commons.byte-streams.utils"}
-  byte-streams.utils)
+ ^{:deprecated true
+   :doc "DEPRECATED: moved to clj-commons.byte-streams.utils"
+   :no-doc true
+   :superseded-by "clj-commons.byte-streams.utils"}
+ byte-streams.utils)
 
 (defmacro defprotocol+ [name & body]
   (when-not (resolve name)
@@ -30,6 +30,6 @@
        (loop []
          (when (.hasNext it#)
            (let [~x (.next it#)]
-            ~@body)
+             ~@body)
            (recur))))))
 
