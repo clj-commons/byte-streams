@@ -8,7 +8,7 @@
                                     :password :env/clojars_password
                                     :sign-releases false}]]
   :dependencies [[org.clj-commons/primitive-math "1.0.0"]
-                 [manifold/manifold "0.2.3"]]
+                 [manifold/manifold "0.3.0"]]
   :profiles {:dev {:dependencies [[org.clojure/clojure "1.11.1"]
                                   [org.clojure/test.check "1.1.1"]
                                   [rhizome "0.2.9"]
