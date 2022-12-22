@@ -57,21 +57,3 @@
    cmp-bufs
    compare-bytes
    bytes=])
-
-
-(comment
-
-  ;; compare the namespaces, make sure we got everything
-  (require '[clojure.set :as set])
-
-  (set/difference
-    (-> (the-ns 'clj-commons.byte-streams)
-        ns-map
-        keys
-        set)
-    (-> (the-ns 'byte-streams)
-        ns-map
-        keys
-        set))
-
-  )
