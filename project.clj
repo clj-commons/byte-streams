@@ -20,6 +20,14 @@
                    :default (complement :stress)}
   :plugins [[jonase/eastwood "1.3.0"]
             [lein-cljfmt "0.9.0"]]
+  :eastwood {:ignored-faults {:reflection {clj-commons.byte-streams.graph [{:line 121}
+                                                                           {:line 122}
+                                                                           {:line 123}
+                                                                           {:line 124}]
+                                           byte-streams.graph [{:line 126}
+                                                               {:line 127}
+                                                               {:line 128}
+                                                               {:line 129}]}}}
   :global-vars {*warn-on-reflection* true}
   :java-source-paths ["src"]
   :javac-options ["-target" "1.8" "-source" "1.8"]
