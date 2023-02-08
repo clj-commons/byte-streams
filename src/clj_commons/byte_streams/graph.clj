@@ -113,11 +113,15 @@
   IConversionGraph
   (assoc-conversion [_ src dst f cost]
                     (let [m' (assoc-in m [src dst] (Conversion. f cost))
+                          ;; NOTE: These method calls are
+                          ;; intentionally done without type-hints to
+                          ;; work around
+                          ;; https://github.com/clj-commons/byte-streams/issues/68
                           m' (if (and
-                                  (nil? (.wrapper ^Type src))
-                                  (nil? (.wrapper ^Type dst)))
-                               (let [src (.type ^Type src)
-                                     dst (.type ^Type dst)]
+                                  (nil? (.wrapper src))
+                                  (nil? (.wrapper dst)))
+                               (let [src (.type src)
+                                     dst (.type dst)]
                                  (-> m'
                                      (assoc-in [(Type. 'seq src) (Type. 'seq dst)]
                                                (Conversion. (fn [x options] (map #(f % options) x)) cost))
