@@ -1,4 +1,4 @@
-(defproject org.clj-commons/byte-streams (or (System/getenv "PROJECT_VERSION") "0.3.1")
+(defproject org.clj-commons/byte-streams (or (System/getenv "PROJECT_VERSION") "0.3.2")
   :description "A simple way to handle the menagerie of Java byte representations."
   :license {:name "MIT License"
             :url "http://opensource.org/licenses/MIT"}
@@ -8,27 +8,28 @@
                                     :password :env/clojars_password
                                     :sign-releases false}]]
   :dependencies [[org.clj-commons/primitive-math "1.0.0"]
-                 [manifold/manifold "0.2.3"]]
+                 [manifold/manifold "0.3.0"]
+                 [potemkin "0.4.6"]]
   :profiles {:dev {:dependencies [[org.clojure/clojure "1.11.1"]
                                   [org.clojure/test.check "1.1.1"]
                                   [rhizome "0.2.9"]
-                                  [codox-md "0.2.0" :exclusions [org.clojure/clojure]]
                                   [criterium "0.4.6"]]
                    :global-vars {*warn-on-reflection* true
                                  *unchecked-math* :warn-on-boxed}}
              :ci {:dependencies [[org.clojure/clojure "1.11.1"]
-                                 [org.clojure/test.check "1.1.1"]
-                                 [rhizome "0.2.9"]]}}
+                                 [org.clojure/test.check "1.1.1"]]}}
   :test-selectors {:stress :stress
                    :default (complement :stress)}
-  :plugins [[lein-codox "0.10.3"]
-            [jonase/eastwood "0.4.3"]
-            [lein-jammin "0.1.1"]
-            [ztellman/lein-cljfmt "0.1.10"]]
-  :cljfmt {:indents {#".*" [[:inner 0]]}}
-  :codox {:source-uri "https://github.com/clj-commons/byte-streams/blob/master/{filepath}#L{line}"
-          :metadata {:doc/format :markdown}
-          :namespaces [byte-streams]}
+  :plugins [[jonase/eastwood "1.3.0"]
+            [lein-cljfmt "0.9.0"]]
+  :eastwood {:ignored-faults {:reflection {clj-commons.byte-streams.graph [{:line 121}
+                                                                           {:line 122}
+                                                                           {:line 123}
+                                                                           {:line 124}]
+                                           byte-streams.graph [{:line 126}
+                                                               {:line 127}
+                                                               {:line 128}
+                                                               {:line 129}]}}}
   :global-vars {*warn-on-reflection* true}
   :java-source-paths ["src"]
   :javac-options ["-target" "1.8" "-source" "1.8"]

@@ -1,14 +1,14 @@
 (ns
-  ^{:deprecated true
-    :doc "DEPRECATED: moved to clj-commons.byte-streams.protocols"
-    :no-doc true
-    :superseded-by "clj-commons.byte-streams.protocols"}
-  byte-streams.protocols
+ ^{:deprecated true
+   :doc "DEPRECATED: moved to clj-commons.byte-streams.protocols"
+   :no-doc true
+   :superseded-by "clj-commons.byte-streams.protocols"}
+ byte-streams.protocols
   (:require
    [byte-streams.utils :refer [defprotocol+]])
   (:import
-    [java.util.concurrent
-     ConcurrentHashMap]))
+   [java.util.concurrent
+    ConcurrentHashMap]))
 
 (defprotocol+ Closeable
   (close [_] "A protocol that is a superset of `java.io.Closeable`."))
@@ -22,9 +22,7 @@
 (extend-protocol Closeable
 
   java.io.Closeable
-  (close [this] (.close this))
-
-  )
+  (close [this] (.close this)))
 
 (let [m (ConcurrentHashMap.)]
   (defn closeable? [x]

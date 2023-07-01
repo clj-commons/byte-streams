@@ -2,10 +2,10 @@
       :doc "DEPRECATED: moved to clj-commons.pushback-stream-test"
       :no-doc true
       :superseded-by "clj-commons.pushback-stream-test"}
-  pushback-stream-test
+ pushback-stream-test
   (:require
-    [clojure.test :refer :all]
-    [byte-streams.pushback-stream :as p]))
+   [clojure.test :refer :all]
+   [byte-streams.pushback-stream :as p]))
 
 (def in (byte-array (range 100)))
 

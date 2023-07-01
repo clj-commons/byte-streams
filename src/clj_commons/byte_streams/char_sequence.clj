@@ -1,26 +1,26 @@
 (ns clj-commons.byte-streams.char-sequence
   (:refer-clojure :exclude [flush])
   (:import
-    [java.util.concurrent.locks
-     ReentrantLock]
-    [java.io
-     ByteArrayOutputStream]
-    [java.nio
-     ByteBuffer
-     CharBuffer]
-    [java.nio.charset
-     Charset
-     CharsetDecoder
-     CoderResult
-     CodingErrorAction]))
+   [java.util.concurrent.locks
+    ReentrantLock]
+   [java.io
+    ByteArrayOutputStream]
+   [java.nio
+    ByteBuffer
+    CharBuffer]
+   [java.nio.charset
+    Charset
+    CharsetDecoder
+    CoderResult
+    CodingErrorAction]))
 
 (set! *unchecked-math* true)
 
 (defn coding-error-action [action]
   (case
-    :report  CodingErrorAction/REPORT
-    :ignore  CodingErrorAction/IGNORE
-    :replace CodingErrorAction/REPLACE))
+   :report  CodingErrorAction/REPORT
+   :ignore  CodingErrorAction/IGNORE
+   :replace CodingErrorAction/REPLACE))
 
 (defn parse-result [^CoderResult result]
   (cond
@@ -50,41 +50,41 @@
    close-fn
    byte-source]
   (lazy-seq
-    (let [num-bytes (+ (long
-                         (if extra-bytes
-                           (.remaining extra-bytes)
-                           0))
+   (let [num-bytes (+ (long
+                       (if extra-bytes
+                         (.remaining extra-bytes)
+                         0))
                       (long chunk-size))
-          len (long
-                (Math/ceil
-                  (/ num-bytes
-                    (.averageCharsPerByte decoder))))
-          out (CharBuffer/allocate len)]
+         len (long
+              (Math/ceil
+               (/ num-bytes
+                  (.averageCharsPerByte decoder))))
+         out (CharBuffer/allocate len)]
 
-      (if (and extra-bytes (= :overflow (decode decoder extra-bytes out)))
+     (if (and extra-bytes (= :overflow (decode decoder extra-bytes out)))
 
         ;; we didn't even exhaust the overflow bytes, try again
-        (cons
-          out
-          (lazy-char-buffer-sequence decoder chunk-size extra-bytes close-fn byte-source))
+       (cons
+        out
+        (lazy-char-buffer-sequence decoder chunk-size extra-bytes close-fn byte-source))
 
-        (if-let [in (byte-source chunk-size)]
-          (let [in (if (and extra-bytes (.hasRemaining extra-bytes))
-                     (concat-bytes extra-bytes in)
-                     in)
-                result (decode decoder in out)]
-            (cons
-              (.flip out)
-              (lazy-char-buffer-sequence
-                decoder
-                chunk-size
-                (when (.hasRemaining ^ByteBuffer in) in)
-                close-fn
-                byte-source)))
-          (do
-            (flush decoder extra-bytes out)
-            (when close-fn (close-fn))
-            (.flip out)))))))
+       (if-let [in (byte-source chunk-size)]
+         (let [in (if (and extra-bytes (.hasRemaining extra-bytes))
+                    (concat-bytes extra-bytes in)
+                    in)
+               result (decode decoder in out)]
+           (cons
+            (.flip out)
+            (lazy-char-buffer-sequence
+             decoder
+             chunk-size
+             (when (.hasRemaining ^ByteBuffer in) in)
+             close-fn
+             byte-source)))
+         (do
+           (flush decoder extra-bytes out)
+           (when close-fn (close-fn))
+           (.flip out)))))))
 
 (defn decode-byte-source
   [byte-source
@@ -113,8 +113,7 @@
                 (recur (- remaining (.remaining buf)) (rest s)))))))
       (length [_]
         (reduce + (map #(.remaining ^CharBuffer %) s)))
-      #_(subSequence [_ start end]
-        )
+      #_(subSequence [_ start end])
       (toString [_]
         (let [buf (StringBuffer.)]
           (doseq [b s]

@@ -1,7 +1,7 @@
 (ns clj-commons.pushback-stream-test
   (:require
-    [clojure.test :refer :all]
-    [clj-commons.byte-streams.pushback-stream :as p]))
+   [clojure.test :refer :all]
+   [clj-commons.byte-streams.pushback-stream :as p]))
 
 (def in (byte-array (range 100)))
 

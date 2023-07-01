@@ -1,5 +1,16 @@
 == Changes
 
+=== 0.3.2
+
+* Replace single-segment namespace with Potemkin's `import-vars` to fix out-of-sync conversion graphs
+* Upgrade to Manifold 0.3.0, remove unused dev deps
+* Update docstring on `to-string` not being lazy
+* Add basic clj-kondo support
+* Fixed nonstandard indentation
+* Deprecated single-segment namespace in README examples
+
+Contributions by Eugen Stan, Eugene Pakhomov, and Matthew Davidson
+
 === 0.3.1
 
 * Ensured close-on-exhaustion behavior when doing whole java.io.File-based conversion
