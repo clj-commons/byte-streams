@@ -9,7 +9,8 @@
    [manifold.stream :as s]
    [byte-streams
     [utils :refer [defprotocol+ defrecord+ deftype+]]
-    [protocols :as p]])
+    [protocols :as p]]
+   [clj-commons.primitive-math :as m])
   (:import
    [java.util
     LinkedList
@@ -25,7 +26,7 @@
            (identical? f (.f ^Conversion x))
            (== cost (.cost ^Conversion x))))
   (hashCode [_]
-            (bit-xor (System/identityHashCode f) (unchecked-int cost))))
+            (m/bit-xor (System/identityHashCode f) (unchecked-int cost))))
 
 (deftype+ Type [wrapper type]
   Object
@@ -35,7 +36,7 @@
            (= wrapper (.wrapper ^Type x))
            (= type (.type ^Type x))))
   (hashCode [_]
-            (bit-xor
+            (m/bit-xor
              (hash wrapper)
              (hash type)))
   (toString [this]
@@ -160,7 +161,7 @@
 
 ;;;
 
-(defrecord+ ConversionPath [path fns visited? cost]
+(defrecord+ ConversionPath [path fns visited? ^double cost]
   Comparable
   (compareTo [_ x]
              (let [cmp (compare cost (.cost ^ConversionPath x))]
@@ -173,7 +174,7 @@
    (conj (.path p) [src dst])
    (conj (.fns p) (.f c))
    (conj (.visited? p) dst)
-   (+ (.cost p) (.cost c))))
+   (m/+ (.cost p) (.cost c))))
 
 (def conversion-path
   (memoize

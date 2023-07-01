@@ -429,15 +429,15 @@
 
 ;; byte-buffer => sequence of byte-buffers
 (def-conversion ^{:cost 0} [ByteBuffer (vector-of ByteBuffer)]
-  [buf {:keys [chunk-size]}]
+  [buf {:keys [^long chunk-size]}]
   (if chunk-size
     (let [lim (.limit buf)
-          indices (range (.position buf) lim ^long chunk-size)]
+          indices (range (.position buf) lim chunk-size)]
       (mapv
        #(-> buf
             .duplicate
             ^ByteBuffer (.position (int %))
-            ^ByteBuffer (.limit (int (min lim (+ (int %) chunk-size))))
+            ^ByteBuffer (.limit (int (min lim (p/+ (int %) chunk-size))))
             .slice)
        indices))
     [buf]))
