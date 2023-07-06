@@ -132,7 +132,7 @@
                                      (assoc-in [(Type. 'seq src) (Type. 'seq dst)]
                                                (Conversion. (fn [x options] (map #(f % options) x)) cost))
                                      (assoc-in [(Type. 'stream src) (Type. 'stream dst)]
-                                               (Conversion. (fn [x options] (s/map #(f % options) x)) (+ cost 0.1)))))
+                                               (Conversion. (fn [x options] (s/map #(f % options) x)) (p/+ ^double cost 0.1)))))
                                m')]
                       (ConversionGraph. m')))
   (possible-sources [_]
