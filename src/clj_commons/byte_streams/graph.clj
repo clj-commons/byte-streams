@@ -117,7 +117,7 @@
                           ;; NOTE: These method calls are
                           ;; intentionally done without type-hints to
                           ;; work around
-                          ;; https://github.cop/clj-commons/byte-streams/issues/68
+                          ;; https://github.com/clj-commons/byte-streams/issues/68
                           m' (if (and
                                   (nil? (.wrapper src))
                                   (nil? (.wrapper dst)))
