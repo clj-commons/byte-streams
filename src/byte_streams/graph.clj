@@ -9,8 +9,8 @@
    [manifold.stream :as s]
    [byte-streams
     [utils :refer [defprotocol+ defrecord+ deftype+]]
-    [protocols :as p]]
-   [clj-commons.primitive-math :as m])
+    [protocols :as proto]]
+   [clj-commons.primitive-math :as p])
   (:import
    [java.util
     LinkedList
@@ -26,7 +26,7 @@
            (identical? f (.f ^Conversion x))
            (== cost (.cost ^Conversion x))))
   (hashCode [_]
-            (m/bit-xor (System/identityHashCode f) (unchecked-int cost))))
+            (p/bit-xor (System/identityHashCode f) (unchecked-int cost))))
 
 (deftype+ Type [wrapper type]
   Object
@@ -36,7 +36,7 @@
            (= wrapper (.wrapper ^Type x))
            (= type (.type ^Type x))))
   (hashCode [_]
-            (m/bit-xor
+            (p/bit-xor
              (hash wrapper)
              (hash type)))
   (toString [this]
@@ -122,7 +122,7 @@
                           ;; NOTE: These method calls are
                           ;; intentionally done without type-hints to
                           ;; work around
-                          ;; https://github.com/clj-commons/byte-streams/issues/68
+                          ;; https://github.cop/clj-commons/byte-streams/issues/68
                           m' (if (and
                                   (nil? (.wrapper src))
                                   (nil? (.wrapper dst)))
@@ -174,7 +174,7 @@
    (conj (.path p) [src dst])
    (conj (.fns p) (.f c))
    (conj (.visited? p) dst)
-   (m/+ (.cost p) (.cost c))))
+   (p/+ (.cost p) (.cost c))))
 
 (def conversion-path
   (memoize
@@ -243,11 +243,11 @@
       0 (fn [x _] x)
 
       1 (let [f (->> path :fns first)]
-          (if (p/closeable? src)
+          (if (proto/closeable? src)
             (fn [x options]
               (let [x' (f x options)]
-                (when-not (p/closeable? x')
-                  (p/close x))
+                (when-not (proto/closeable? x')
+                  (proto/close x))
                 x'))
             f))
 
@@ -259,12 +259,12 @@
                         (fn [x f]
 
                            ;; keep track of everything that needs to be closed once the bytes are exhausted
-                          (when (p/closeable? x)
-                            (.add close-fns #(p/close x)))
+                          (when (proto/closeable? x)
+                            (.add close-fns #(proto/close x)))
                           (f x options))
                         x
                         fns)]
-            (if-let [close-fn (when-not (or (p/closeable? result)
+            (if-let [close-fn (when-not (or (proto/closeable? result)
                                             (.isEmpty close-fns))
                                 #(loop []
                                    (when-let [f (.poll close-fns)]
@@ -285,7 +285,7 @@
                   ;; we assume that if the end-result is closeable, it will take care of all the intermediate
                   ;; objects beneath it.  I think this is true as long as we're not doing multiple streaming
                   ;; reads, but this might need to be revisited.
-                  (when-not (p/closeable? result)
+                  (when-not (proto/closeable? result)
                     (close-fn))
                   result))
               result)))))))
