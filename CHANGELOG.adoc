@@ -1,11 +1,17 @@
 == Changes
 
+=== 0.3.3
+
+* Temporarily removed some type hints that AOT fails on
+* Better kondo support
+* Switched to primitive-math for boxed math warnings
+
 === 0.3.2
 
-* Replace single-segment namespace with Potemkin's `import-vars` to fix out-of-sync conversion graphs
-* Upgrade to Manifold 0.3.0, remove unused dev deps
-* Update docstring on `to-string` not being lazy
-* Add basic clj-kondo support
+* Replaced single-segment namespace with Potemkin's `import-vars` to fix out-of-sync conversion graphs
+* Upgraded to Manifold 0.3.0, remove unused dev deps
+* Updated docstring on `to-string` not being lazy
+* Added basic clj-kondo support
 * Fixed nonstandard indentation
 * Deprecated single-segment namespace in README examples
 
