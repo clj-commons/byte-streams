@@ -13,7 +13,9 @@
   :profiles {:dev {:dependencies [[org.clojure/clojure "1.11.1"]
                                   [org.clojure/test.check "1.1.1"]
                                   [rhizome "0.2.9"]
-                                  [criterium "0.4.6"]]}
+                                  [criterium "0.4.6"]]
+                   :global-vars {*warn-on-reflection* true
+                                 *unchecked-math* :warn-on-boxed}}
              :ci {:dependencies [[org.clojure/clojure "1.11.1"]
                                  [org.clojure/test.check "1.1.1"]]}}
   :test-selectors {:stress :stress
