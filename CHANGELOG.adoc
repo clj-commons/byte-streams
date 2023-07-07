@@ -6,6 +6,8 @@
 * Better kondo support
 * Switched to primitive-math for boxed math warnings
 
+Contributions by Balint Erdos, Moritz Heidkamp, and Matthew Davidson.
+
 === 0.3.2
 
 * Replaced single-segment namespace with Potemkin's `import-vars` to fix out-of-sync conversion graphs
@@ -15,7 +17,7 @@
 * Fixed nonstandard indentation
 * Deprecated single-segment namespace in README examples
 
-Contributions by Eugen Stan, Eugene Pakhomov, and Matthew Davidson
+Contributions by Eugen Stan, Eugene Pakhomov, and Matthew Davidson.
 
 === 0.3.1
 
@@ -31,7 +33,7 @@ Contributions by Matthew Davidson
 * Copied code and tests to nested namespaces, deprecated top-level single-segment ns for Graal/clj-easy
 * Bumped Manifold dep to 0.2.3
 
-Contributions by skynet
+Contributions by skynet.
 
 === 0.2.10
 
