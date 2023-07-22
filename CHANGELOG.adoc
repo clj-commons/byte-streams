@@ -1,5 +1,11 @@
 == Changes
 
+=== 0.3.4
+
+* Fixed type hint bug where `to-output-stream` was mistakenly hinted as an InputStream
+
+Contribution by Matthew Davidson.
+
 === 0.3.3
 
 * Temporarily removed some type hints that AOT fails on
