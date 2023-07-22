@@ -18,3 +18,4 @@ DS_Store
 .clj-kondo/.cache
 .eastwood
 /.tool-versions
+/.lsp
