@@ -828,7 +828,7 @@
      x
      (DataInputStream. (to-input-stream x)))))
 
-(defn ^InputStream to-output-stream
+(defn ^OutputStream to-output-stream
   "Converts the object to a `java.io.OutputStream`."
   ([x]
    (to-output-stream x nil))
