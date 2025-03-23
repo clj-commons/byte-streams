@@ -513,10 +513,16 @@
           (recur))))
     (.toByteArray out)))
 
-#_(let [ary (Utils/byteArray 0)]
-    (def-conversion ^{:cost 0} [::nil byte-array-type]
-      [src options]
-      ary))
+(def-conversion ^{:cost 0} [::nil byte-array-type]
+  [src options]
+  (clojure.core/byte-array 0))
+
+(def-conversion ^{:cost 0.5} [clojure.lang.IPersistentCollection byte-array-type]
+  [coll options]
+  (if (empty? coll)
+    (clojure.core/byte-array 0)
+    (throw (IllegalArgumentException. 
+            (str "Don't know how to convert non-empty " (class coll) " into " byte-array-type)))))
 
 (def-conversion ^{:cost 2} [#'proto/ByteSource byte-array-type]
   [src options]
