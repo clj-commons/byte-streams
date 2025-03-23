@@ -3,7 +3,8 @@
    [clj-commons.byte-streams :refer [bytes= compare-bytes conversion-path convert dev-null possible-conversions seq-of stream-of to-byte-array to-byte-buffer to-byte-buffers to-input-stream to-string transfer vector-of] :as bs]
    [clojure.test :refer :all]
    [clojure.java.io :as io]
-   [clj-commons.primitive-math :as p])
+   [clj-commons.primitive-math :as p]
+   [clojure.set :as set])
   (:refer-clojure
    :exclude [vector-of])
   (:import
@@ -239,6 +240,22 @@
               (dotimes [i size]
                 (is (= (aget bb-array i) 0)))
               (is (= (aget bb-array size) val)))))))))
+
+(deftest test-empty-collections
+  (testing "Empty vector to byte array conversion"
+    (let [result (to-byte-array [])]
+      (is (instance? (Class/forName "[B") result))
+      (is (= 0 (alength result)))))
+  
+  (testing "Empty list to byte array conversion"
+    (let [result (to-byte-array '())]
+      (is (instance? (Class/forName "[B") result))
+      (is (= 0 (alength result)))))
+      
+  (testing "Empty seq to byte array conversion"
+    (let [result (to-byte-array (seq []))]
+      (is (instance? (Class/forName "[B") result))
+      (is (= 0 (alength result))))))
 
 
 
