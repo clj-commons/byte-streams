@@ -103,19 +103,20 @@
 
    (read [this]
          (let [ary (byte-array 1)
-               len (long @(.take this ary 0 1 true))]
-           (if (zero? len)
+               n (long @(.take this ary 0 1 true))]
+           (if (= -1 n)
              -1
              (p/bit-and 0xFF (get ary 0)))))
 
    (read [this ary offset length]
          (let [n (long @(.take this ary offset length true))]
-           (if (zero? n)
+           (if (= -1 n)
              -1
              n)))
 
    (skip [this n]
-         @(.take this (byte-array n) 0 n true))
+         (let [n @(.take this (byte-array n) 0 n true)]
+           (if (= -1 n) 0 n)))
 
    PushbackStream
 
@@ -222,9 +223,12 @@
                      d))
 
                  (if (or closed?
-                         (and (pos? (.position out))
+                         (and (or (pos? (.position out)) (= 0 length))
                               (or eager? (not (.hasRemaining out)))))
-                   (d/success-deferred (.position out))
+                   (d/success-deferred (if (or (pos? (.position out))
+                                               (= 0 length))
+                                         (.position out)
+                                         -1))
                    (let [d (d/deferred)]
                      (.add consumers (Consumption. out d eager?))
                      d))])]
